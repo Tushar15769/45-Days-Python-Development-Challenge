@@ -1,0 +1,10 @@
+{
+  "created_at": "2026-05-29 16:11:10.374209",
+  "runs": 1,
+  "errors": 1,
+  "records": {},
+  "flags": {},
+  "history": [
+    "[21:41:10] Exported to outputs\\CliCalculatorApp_state.json"
+  ]
+}
