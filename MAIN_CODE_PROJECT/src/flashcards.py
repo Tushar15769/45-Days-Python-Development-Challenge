@@ -1,4 +1,4 @@
-"""Build an Interactive Flashcard Learning System with Performance Tracking
+﻿"""Build an Interactive Flashcard Learning System with Performance Tracking
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,7 +6,7 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
@@ -21,7 +21,7 @@ class FlashcardsAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
 
@@ -30,8 +30,6 @@ class FlashcardsApp:
         self.state = FlashcardsAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
-        self.seed = 42
-        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -158,7 +156,7 @@ class FlashcardsApp:
             'flags': self.state.flags,
             'history': self.history_tail(10),
         }
-        return self.save_json('state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -202,82 +200,34 @@ class FlashcardsApp:
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Processing')
-        items = self.dataset()
-        result = self.process_dataset(items)
-        self.record('result', result)
-        print(json.dumps(result, indent=2))
+        self.section('Flashcard Quiz')
+        cards = [
+            {'question': 'What is Python?', 'answer': 'A programming language', 'category': 'General'},
+            {'question': 'What is a list?', 'answer': 'Ordered mutable collection', 'category': 'Data Structures'},
+            {'question': 'What is a dict?', 'answer': 'Key-value mapping', 'category': 'Data Structures'},
+        ]
+        shuffled = random.sample(cards, len(cards))
+        score = 0
+        for i, card in enumerate(shuffled, 1):
+            self.section(f'Card {i}/{len(shuffled)}')
+            print(self.format_kv('Category', card['category']))
+            print(self.format_kv('Question', card['question']))
+            print(self.format_kv('Answer', card['answer']))
+            score += 1
+        self.section('Quiz Results')
+        total = len(shuffled)
+        percent = round((score / total) * 100, 2)
+        print(self.format_kv('Correct', score))
+        print(self.format_kv('Total', total))
+        print(self.format_kv('Score', f'{percent}%'))
+        result = {
+            'cards': len(cards),
+            'total_questions': total,
+            'score': score,
+            'percentage': percent,
+        }
+        self.record('quiz_result', result)
         self.display_report()
-    def flashcards_utility_1(self, value: Any) -> Any:
-        """Utility routine 1 tuned for flashcards."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def flashcards_utility_2(self, value: Any) -> Any:
-        """Utility routine 2 tuned for flashcards."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def flashcards_utility_3(self, value: Any) -> Any:
-        """Utility routine 3 tuned for flashcards."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def flashcards_utility_4(self, value: Any) -> Any:
-        """Utility routine 4 tuned for flashcards."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def flashcards_utility_5(self, value: Any) -> Any:
-        """Utility routine 5 tuned for flashcards."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def flashcards_utility_6(self, value: Any) -> Any:
-        """Utility routine 6 tuned for flashcards."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def flashcards_utility_7(self, value: Any) -> Any:
-        """Utility routine 7 tuned for flashcards."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')

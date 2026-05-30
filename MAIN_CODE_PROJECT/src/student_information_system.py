@@ -1,4 +1,4 @@
-"""Implement a Structured Student Information Management System with Search and Sorting Capabilities
+﻿"""Implement a Structured Student Information Management System with Search and Sorting Capabilities
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,7 +6,7 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
@@ -21,7 +21,7 @@ class StudentInformationSystemAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
 
@@ -30,8 +30,6 @@ class StudentInformationSystemApp:
         self.state = StudentInformationSystemAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
-        self.seed = 42
-        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -158,7 +156,7 @@ class StudentInformationSystemApp:
             'flags': self.state.flags,
             'history': self.history_tail(10),
         }
-        return self.save_json('state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -201,82 +199,40 @@ class StudentInformationSystemApp:
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Processing')
-        items = self.dataset()
-        result = self.process_dataset(items)
-        self.record('result', result)
-        print(json.dumps(result, indent=2))
+        self.section('Student Information System')
+        students = [
+            {'name': 'Alice', 'grade': 85, 'subjects': {'Math': 85, 'Science': 90, 'English': 80}},
+            {'name': 'Bob', 'grade': 72, 'subjects': {'Math': 70, 'Science': 75, 'English': 72}},
+            {'name': 'Charlie', 'grade': 90, 'subjects': {'Math': 95, 'Science': 88, 'English': 87}},
+        ]
+        print(self.render_table([{'name': s['name'], 'grade': s['grade']} for s in students]))
+        grades = [s['grade'] for s in students]
+        class_avg = round(sum(grades) / len(grades), 2)
+        min_grade = min(grades)
+        max_grade = max(grades)
+        subjects = ['Math', 'Science', 'English']
+        subject_averages = {}
+        for subj in subjects:
+            vals = [s['subjects'][subj] for s in students]
+            subject_averages[subj] = round(sum(vals) / len(vals), 2)
+        needs_improvement = [s for s in students if s['grade'] < 75]
+        self.section('Grade Report')
+        print(self.format_kv('Class average', class_avg))
+        print(self.format_kv('Min grade', min_grade))
+        print(self.format_kv('Max grade', max_grade))
+        print(self.format_kv('Subject averages', subject_averages))
+        print(self.format_kv('Needs improvement (< 75)', len(needs_improvement)))
+        for s in needs_improvement:
+            print(self.format_kv(f'  {s["name"]}', s['grade']))
+        result = {
+            'class_average': class_avg,
+            'min_grade': min_grade,
+            'max_grade': max_grade,
+            'subject_averages': subject_averages,
+            'needs_improvement': [s['name'] for s in needs_improvement],
+        }
+        self.record('student_report', result)
         self.display_report()
-    def student_information_system_utility_1(self, value: Any) -> Any:
-        """Utility routine 1 tuned for student_information_system."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def student_information_system_utility_2(self, value: Any) -> Any:
-        """Utility routine 2 tuned for student_information_system."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def student_information_system_utility_3(self, value: Any) -> Any:
-        """Utility routine 3 tuned for student_information_system."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def student_information_system_utility_4(self, value: Any) -> Any:
-        """Utility routine 4 tuned for student_information_system."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def student_information_system_utility_5(self, value: Any) -> Any:
-        """Utility routine 5 tuned for student_information_system."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def student_information_system_utility_6(self, value: Any) -> Any:
-        """Utility routine 6 tuned for student_information_system."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def student_information_system_utility_7(self, value: Any) -> Any:
-        """Utility routine 7 tuned for student_information_system."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')

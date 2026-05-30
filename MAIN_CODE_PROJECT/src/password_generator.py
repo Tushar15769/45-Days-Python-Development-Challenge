@@ -1,4 +1,4 @@
-"""Design a Random Password Generator with Custom Security Configuration Support
+﻿"""Design a Random Password Generator with Custom Security Configuration Support
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,7 +6,7 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
@@ -15,13 +15,14 @@ import os
 import random
 import statistics
 import time
+import string
 
 @dataclass
 class PasswordGeneratorAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
 
@@ -30,8 +31,6 @@ class PasswordGeneratorApp:
         self.state = PasswordGeneratorAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
-        self.seed = 42
-        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -158,7 +157,7 @@ class PasswordGeneratorApp:
             'flags': self.state.flags,
             'history': self.history_tail(10),
         }
-        return self.save_json('state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -201,84 +200,28 @@ class PasswordGeneratorApp:
             'passwords': generated
         }
 
+    def generate_password(self, length: int = 12, use_digits: bool = True, use_special: bool = True) -> str:
+        chars = string.ascii_letters
+        if use_digits:
+            chars += string.digits
+        if use_special:
+            chars += string.punctuation
+        return ''.join(random.choice(chars) for _ in range(length))
+
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Processing')
-        items = self.dataset()
-        result = self.process_dataset(items)
-        self.record('result', result)
-        print(json.dumps(result, indent=2))
+        self.section('Password Generator')
+        passwords = []
+        for length in [8, 12, 16]:
+            pwd = self.generate_password(length)
+            has_digits = any(c.isdigit() for c in pwd)
+            has_special = any(not c.isalnum() for c in pwd)
+            passwords.append({'password': pwd, 'length': length, 'has_digits': has_digits, 'has_special': has_special})
+            print(self.format_kv(f'Password ({length} chars)', pwd))
+            print(self.format_kv('  Has digits', str(has_digits)))
+            print(self.format_kv('  Has special', str(has_special)))
+        self.record('passwords', passwords)
         self.display_report()
-    def password_generator_utility_1(self, value: Any) -> Any:
-        """Utility routine 1 tuned for password_generator."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def password_generator_utility_2(self, value: Any) -> Any:
-        """Utility routine 2 tuned for password_generator."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def password_generator_utility_3(self, value: Any) -> Any:
-        """Utility routine 3 tuned for password_generator."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def password_generator_utility_4(self, value: Any) -> Any:
-        """Utility routine 4 tuned for password_generator."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def password_generator_utility_5(self, value: Any) -> Any:
-        """Utility routine 5 tuned for password_generator."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def password_generator_utility_6(self, value: Any) -> Any:
-        """Utility routine 6 tuned for password_generator."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def password_generator_utility_7(self, value: Any) -> Any:
-        """Utility routine 7 tuned for password_generator."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')

@@ -1,4 +1,4 @@
-"""Create an Interactive Rock Paper Scissors Gaming System with Score Persistence
+﻿"""Create an Interactive Rock Paper Scissors Gaming System with Score Persistence
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,7 +6,7 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
@@ -21,7 +21,7 @@ class RockPaperScissorsAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
 
@@ -30,8 +30,6 @@ class RockPaperScissorsApp:
         self.state = RockPaperScissorsAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
-        self.seed = 42
-        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -158,7 +156,7 @@ class RockPaperScissorsApp:
             'flags': self.state.flags,
             'history': self.history_tail(10),
         }
-        return self.save_json('state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -207,82 +205,37 @@ class RockPaperScissorsApp:
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Processing')
-        items = self.dataset()
-        result = self.process_dataset(items)
-        self.record('result', result)
-        print(json.dumps(result, indent=2))
+        self.section('Rock-Paper-Scissors: 5 Rounds')
+        choices = ['rock', 'paper', 'scissors']
+        player_moves = ['rock', 'paper', 'scissors', 'rock', 'paper']
+        player_score = 0
+        computer_score = 0
+        round_results = []
+        for i in range(5):
+            player = player_moves[i]
+            computer = random.choice(choices)
+            if player == computer:
+                result = 'draw'
+            elif (player == 'rock' and computer == 'scissors') or (player == 'scissors' and computer == 'paper') or (player == 'paper' and computer == 'rock'):
+                result = 'player'
+                player_score += 1
+            else:
+                result = 'computer'
+                computer_score += 1
+            print(self.format_kv(f'Round {i+1}', f'Player: {player} vs Computer: {computer} -> {result}'))
+            round_results.append({'round': i+1, 'player': player, 'computer': computer, 'result': result})
+        print()
+        if player_score > computer_score:
+            winner = 'Player'
+        elif computer_score > player_score:
+            winner = 'Computer'
+        else:
+            winner = 'Draw'
+        print(self.format_kv('Final', f'Player {player_score} - {computer_score} Computer'))
+        print(self.format_kv('Winner', winner))
+        self.record('rounds', round_results)
+        self.record('scores', {'player': player_score, 'computer': computer_score, 'winner': winner})
         self.display_report()
-    def rock_paper_scissors_utility_1(self, value: Any) -> Any:
-        """Utility routine 1 tuned for rock_paper_scissors."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def rock_paper_scissors_utility_2(self, value: Any) -> Any:
-        """Utility routine 2 tuned for rock_paper_scissors."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def rock_paper_scissors_utility_3(self, value: Any) -> Any:
-        """Utility routine 3 tuned for rock_paper_scissors."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def rock_paper_scissors_utility_4(self, value: Any) -> Any:
-        """Utility routine 4 tuned for rock_paper_scissors."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def rock_paper_scissors_utility_5(self, value: Any) -> Any:
-        """Utility routine 5 tuned for rock_paper_scissors."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def rock_paper_scissors_utility_6(self, value: Any) -> Any:
-        """Utility routine 6 tuned for rock_paper_scissors."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def rock_paper_scissors_utility_7(self, value: Any) -> Any:
-        """Utility routine 7 tuned for rock_paper_scissors."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')

@@ -1,4 +1,4 @@
-"""Implement a Comprehensive Date and Time Utility with Multiple Formatting Options
+﻿"""Implement a Comprehensive Date and Time Utility with Multiple Formatting Options
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,7 +6,7 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
@@ -21,7 +21,7 @@ class DatetimeUtilityAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
 
@@ -30,8 +30,6 @@ class DatetimeUtilityApp:
         self.state = DatetimeUtilityAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
-        self.seed = 42
-        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -158,7 +156,7 @@ class DatetimeUtilityApp:
             'flags': self.state.flags,
             'history': self.history_tail(10),
         }
-        return self.save_json('state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -200,82 +198,27 @@ class DatetimeUtilityApp:
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Processing')
-        items = self.dataset()
-        result = self.process_dataset(items)
+        self.section('Date/Time Formatting')
+        now = datetime.now()
+        iso_fmt = now.isoformat()
+        us_fmt = now.strftime('%m/%d/%Y')
+        eu_fmt = now.strftime('%d/%m/%Y')
+        time_fmt = now.strftime('%H:%M:%S')
+        self.section('Current Time Formats')
+        print(self.format_kv('ISO', iso_fmt))
+        print(self.format_kv('US (MM/DD/YYYY)', us_fmt))
+        print(self.format_kv('EU (DD/MM/YYYY)', eu_fmt))
+        print(self.format_kv('Time only', time_fmt))
+        d1 = datetime(2026, 1, 1)
+        d2 = datetime(2026, 5, 29)
+        diff = (d2 - d1).days
+        self.section('Date Difference')
+        print(self.format_kv('Date 1', d1.strftime('%Y-%m-%d')))
+        print(self.format_kv('Date 2', d2.strftime('%Y-%m-%d')))
+        print(self.format_kv('Days between', diff))
+        result = {'iso': iso_fmt, 'us': us_fmt, 'eu': eu_fmt, 'time': time_fmt, 'date_diff_days': diff}
         self.record('result', result)
-        print(json.dumps(result, indent=2))
         self.display_report()
-    def datetime_utility_utility_1(self, value: Any) -> Any:
-        """Utility routine 1 tuned for datetime_utility."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def datetime_utility_utility_2(self, value: Any) -> Any:
-        """Utility routine 2 tuned for datetime_utility."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def datetime_utility_utility_3(self, value: Any) -> Any:
-        """Utility routine 3 tuned for datetime_utility."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def datetime_utility_utility_4(self, value: Any) -> Any:
-        """Utility routine 4 tuned for datetime_utility."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def datetime_utility_utility_5(self, value: Any) -> Any:
-        """Utility routine 5 tuned for datetime_utility."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def datetime_utility_utility_6(self, value: Any) -> Any:
-        """Utility routine 6 tuned for datetime_utility."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def datetime_utility_utility_7(self, value: Any) -> Any:
-        """Utility routine 7 tuned for datetime_utility."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')

@@ -1,4 +1,4 @@
-"""Implement a URL Validation and Website Status Monitoring Utility
+﻿"""Implement a URL Validation and Website Status Monitoring Utility
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,7 +6,7 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
@@ -16,12 +16,15 @@ import random
 import statistics
 import time
 
+import urllib.error
+import urllib.request
+
 @dataclass
 class UrlMonitorAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
 
@@ -30,8 +33,6 @@ class UrlMonitorApp:
         self.state = UrlMonitorAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
-        self.seed = 42
-        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -158,7 +159,7 @@ class UrlMonitorApp:
             'flags': self.state.flags,
             'history': self.history_tail(10),
         }
-        return self.save_json('state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -190,82 +191,35 @@ class UrlMonitorApp:
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Processing')
-        items = self.dataset()
-        result = self.process_dataset(items)
-        self.record('result', result)
-        print(json.dumps(result, indent=2))
+        self.section('URL Monitoring')
+        urls = [
+            'https://jsonplaceholder.typicode.com/posts/1',
+            'https://jsonplaceholder.typicode.com/invalid',
+            'https://nonexistent.domain.test'
+        ]
+        results = []
+        for url in urls:
+            start = time.perf_counter()
+            status = 'ERROR'
+            code = 0
+            try:
+                request = urllib.request.Request(url, method='GET', headers={'User-Agent': 'Python45-Dev/1.0'})
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    code = response.getcode()
+                    status = 'UP' if 200 <= code < 400 else 'DOWN'
+            except urllib.error.HTTPError as exc:
+                code = exc.code
+                status = 'UP' if code == 404 else 'DOWN'
+            except (urllib.error.URLError, Exception):
+                status = 'DOWN'
+            elapsed = round(time.perf_counter() - start, 4)
+            results.append({'URL': url, 'Status': status, 'Code': code, 'Time (s)': elapsed})
+        self.section('Monitor Results')
+        print(self.render_table(results))
+        self.record('monitor_results', results)
+        up_count = sum(1 for r in results if r['Status'] == 'UP')
+        self.log(f'{up_count}/{len(results)} URLs are UP')
         self.display_report()
-    def url_monitor_utility_1(self, value: Any) -> Any:
-        """Utility routine 1 tuned for url_monitor."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def url_monitor_utility_2(self, value: Any) -> Any:
-        """Utility routine 2 tuned for url_monitor."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def url_monitor_utility_3(self, value: Any) -> Any:
-        """Utility routine 3 tuned for url_monitor."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def url_monitor_utility_4(self, value: Any) -> Any:
-        """Utility routine 4 tuned for url_monitor."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def url_monitor_utility_5(self, value: Any) -> Any:
-        """Utility routine 5 tuned for url_monitor."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def url_monitor_utility_6(self, value: Any) -> Any:
-        """Utility routine 6 tuned for url_monitor."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def url_monitor_utility_7(self, value: Any) -> Any:
-        """Utility routine 7 tuned for url_monitor."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')

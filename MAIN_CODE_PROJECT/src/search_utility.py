@@ -1,4 +1,4 @@
-"""Develop a Smart Search Utility with Keyword Matching and Ranking Logic
+﻿"""Develop a Smart Search Utility with Keyword Matching and Ranking Logic
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,7 +6,7 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
@@ -21,7 +21,7 @@ class SearchUtilityAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
 
@@ -30,8 +30,6 @@ class SearchUtilityApp:
         self.state = SearchUtilityAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
-        self.seed = 42
-        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -158,7 +156,7 @@ class SearchUtilityApp:
             'flags': self.state.flags,
             'history': self.history_tail(10),
         }
-        return self.save_json('state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -202,82 +200,23 @@ class SearchUtilityApp:
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Processing')
-        items = self.dataset()
-        result = self.process_dataset(items)
+        self.section('Smart Search Utility')
+        data = ['apple fruit', 'banana fruit', 'carrot vegetable', 'date fruit', 'elderberry fruit', 'fig fruit', 'grape fruit']
+        search_term_1 = 'fruit'
+        search_term_2 = 'vege'
+        results_1 = [item for item in data if search_term_1 in item.lower()]
+        results_2 = [item for item in data if search_term_2 in item.lower()]
+        self.section(f"Search for '{search_term_1}'")
+        print(self.format_kv('Matches', len(results_1)))
+        if results_1:
+            print(self.render_table([{'item': r} for r in results_1]))
+        self.section(f"Search for '{search_term_2}'")
+        print(self.format_kv('Matches', len(results_2)))
+        if results_2:
+            print(self.render_table([{'item': r} for r in results_2]))
+        result = {'fruit_matches': len(results_1), 'fruit_results': results_1, 'vege_matches': len(results_2), 'vege_results': results_2}
         self.record('result', result)
-        print(json.dumps(result, indent=2))
         self.display_report()
-    def search_utility_utility_1(self, value: Any) -> Any:
-        """Utility routine 1 tuned for search_utility."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def search_utility_utility_2(self, value: Any) -> Any:
-        """Utility routine 2 tuned for search_utility."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def search_utility_utility_3(self, value: Any) -> Any:
-        """Utility routine 3 tuned for search_utility."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def search_utility_utility_4(self, value: Any) -> Any:
-        """Utility routine 4 tuned for search_utility."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def search_utility_utility_5(self, value: Any) -> Any:
-        """Utility routine 5 tuned for search_utility."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def search_utility_utility_6(self, value: Any) -> Any:
-        """Utility routine 6 tuned for search_utility."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def search_utility_utility_7(self, value: Any) -> Any:
-        """Utility routine 7 tuned for search_utility."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')

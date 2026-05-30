@@ -1,4 +1,4 @@
-"""Create a Dynamic Contact Management System with Persistent Data Storage Support
+﻿"""Create a Dynamic Contact Management System with Persistent Data Storage Support
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,7 +6,7 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
@@ -21,7 +21,7 @@ class ContactManagerAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
 
@@ -30,8 +30,6 @@ class ContactManagerApp:
         self.state = ContactManagerAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
-        self.seed = 42
-        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -158,7 +156,7 @@ class ContactManagerApp:
             'flags': self.state.flags,
             'history': self.history_tail(10),
         }
-        return self.save_json('state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -207,82 +205,30 @@ class ContactManagerApp:
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Processing')
-        items = self.dataset()
-        result = self.process_dataset(items)
-        self.record('result', result)
-        print(json.dumps(result, indent=2))
+        self.section('Contact Manager')
+        contacts = [
+            {'name': 'Alice', 'phone': '123-456-7890', 'email': 'alice@example.com', 'group': 'Friends'},
+            {'name': 'Bob', 'phone': '234-567-8901', 'email': 'bob@example.com', 'group': 'Work'},
+            {'name': 'Charlie', 'phone': '345-678-9012', 'email': 'charlie@example.com', 'group': 'Friends'},
+        ]
+        print('All Contacts:')
+        print(self.render_table(contacts))
+        groups = {}
+        for c in contacts:
+            grp = c['group']
+            if grp not in groups:
+                groups[grp] = []
+            groups[grp].append(c)
+        self.section('Groups')
+        for grp, members in groups.items():
+            print(f'\nGroup: {grp}')
+            print(self.render_table(members))
+        result = {
+            'total_contacts': len(contacts),
+            'groups': {k: len(v) for k, v in groups.items()},
+        }
+        self.record('contacts', result)
         self.display_report()
-    def contact_manager_utility_1(self, value: Any) -> Any:
-        """Utility routine 1 tuned for contact_manager."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def contact_manager_utility_2(self, value: Any) -> Any:
-        """Utility routine 2 tuned for contact_manager."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def contact_manager_utility_3(self, value: Any) -> Any:
-        """Utility routine 3 tuned for contact_manager."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def contact_manager_utility_4(self, value: Any) -> Any:
-        """Utility routine 4 tuned for contact_manager."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def contact_manager_utility_5(self, value: Any) -> Any:
-        """Utility routine 5 tuned for contact_manager."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def contact_manager_utility_6(self, value: Any) -> Any:
-        """Utility routine 6 tuned for contact_manager."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def contact_manager_utility_7(self, value: Any) -> Any:
-        """Utility routine 7 tuned for contact_manager."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')

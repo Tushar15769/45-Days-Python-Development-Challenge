@@ -1,4 +1,4 @@
-"""Build a Dynamic JSON Data Reader and Structured Formatter
+﻿"""Build a Dynamic JSON Data Reader and Structured Formatter
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,7 +6,7 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
@@ -21,7 +21,7 @@ class JsonFormatterAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
 
@@ -30,8 +30,6 @@ class JsonFormatterApp:
         self.state = JsonFormatterAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
-        self.seed = 42
-        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -158,7 +156,7 @@ class JsonFormatterApp:
             'flags': self.state.flags,
             'history': self.history_tail(10),
         }
-        return self.save_json('state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -195,82 +193,21 @@ class JsonFormatterApp:
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Processing')
-        items = self.dataset()
-        result = self.process_dataset(items)
+        self.section('JSON Formatting')
+        sample = {'user': {'id': 1, 'name': 'Alice', 'roles': ['admin', 'editor'], 'metadata': {'created': '2026-01-01', 'active': True}}}
+        pretty = json.dumps(sample, indent=2)
+        compact = json.dumps(sample)
+        self.section('Pretty-Printed JSON')
+        print(pretty)
+        self.section('Compact JSON')
+        print(compact)
+        self.section('Comparison')
+        print(self.format_kv('Pretty length', len(pretty)))
+        print(self.format_kv('Compact length', len(compact)))
+        print(self.format_kv('Difference', len(pretty) - len(compact)))
+        result = {'pretty': pretty, 'compact': compact, 'pretty_length': len(pretty), 'compact_length': len(compact)}
         self.record('result', result)
-        print(json.dumps(result, indent=2))
         self.display_report()
-    def json_formatter_utility_1(self, value: Any) -> Any:
-        """Utility routine 1 tuned for json_formatter."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def json_formatter_utility_2(self, value: Any) -> Any:
-        """Utility routine 2 tuned for json_formatter."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def json_formatter_utility_3(self, value: Any) -> Any:
-        """Utility routine 3 tuned for json_formatter."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def json_formatter_utility_4(self, value: Any) -> Any:
-        """Utility routine 4 tuned for json_formatter."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def json_formatter_utility_5(self, value: Any) -> Any:
-        """Utility routine 5 tuned for json_formatter."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def json_formatter_utility_6(self, value: Any) -> Any:
-        """Utility routine 6 tuned for json_formatter."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def json_formatter_utility_7(self, value: Any) -> Any:
-        """Utility routine 7 tuned for json_formatter."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')

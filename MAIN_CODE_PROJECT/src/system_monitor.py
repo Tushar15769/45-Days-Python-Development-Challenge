@@ -1,4 +1,4 @@
-"""Build a System Resource Monitoring Tool for CPU and Memory Usage Analysis
+﻿"""Build a System Resource Monitoring Tool for CPU and Memory Usage Analysis
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,7 +6,7 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
@@ -21,7 +21,7 @@ class SystemMonitorAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
 
@@ -30,8 +30,6 @@ class SystemMonitorApp:
         self.state = SystemMonitorAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
-        self.seed = 42
-        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -158,7 +156,7 @@ class SystemMonitorApp:
             'flags': self.state.flags,
             'history': self.history_tail(10),
         }
-        return self.save_json('state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -202,82 +200,38 @@ class SystemMonitorApp:
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Processing')
-        items = self.dataset()
-        result = self.process_dataset(items)
-        self.record('result', result)
-        print(json.dumps(result, indent=2))
+        self.section('System Monitoring')
+        snapshots = []
+        for i in range(3):
+            snap = {
+                'timestamp': datetime.now().isoformat(),
+                'cpu_usage': random.randint(20, 90),
+                'memory_usage': random.randint(40, 80),
+                'disk_usage': random.randint(50, 95),
+                'network_in': 1024,
+                'network_out': 512,
+                'uptime_hours': random.randint(1, 720),
+            }
+            snapshots.append(snap)
+            time.sleep(0.1)
+        print(self.render_table(snapshots))
+        trends = {}
+        metrics = ['cpu_usage', 'memory_usage', 'disk_usage']
+        for m in metrics:
+            vals = [s[m] for s in snapshots]
+            if vals[-1] > vals[0]:
+                trends[m] = 'increasing'
+            elif vals[-1] < vals[0]:
+                trends[m] = 'decreasing'
+            else:
+                trends[m] = 'stable'
+        print()
+        self.section('Trends')
+        for k, v in trends.items():
+            print(self.format_kv(k.replace('_', ' ').title(), v))
+        self.record('snapshots', snapshots)
+        self.record('trends', trends)
         self.display_report()
-    def system_monitor_utility_1(self, value: Any) -> Any:
-        """Utility routine 1 tuned for system_monitor."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def system_monitor_utility_2(self, value: Any) -> Any:
-        """Utility routine 2 tuned for system_monitor."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def system_monitor_utility_3(self, value: Any) -> Any:
-        """Utility routine 3 tuned for system_monitor."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def system_monitor_utility_4(self, value: Any) -> Any:
-        """Utility routine 4 tuned for system_monitor."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def system_monitor_utility_5(self, value: Any) -> Any:
-        """Utility routine 5 tuned for system_monitor."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def system_monitor_utility_6(self, value: Any) -> Any:
-        """Utility routine 6 tuned for system_monitor."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def system_monitor_utility_7(self, value: Any) -> Any:
-        """Utility routine 7 tuned for system_monitor."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')

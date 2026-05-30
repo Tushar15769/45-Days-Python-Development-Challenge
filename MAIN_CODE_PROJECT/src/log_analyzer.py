@@ -1,4 +1,4 @@
-"""Implement an Automated Log Analysis Utility with Error Pattern Detection
+﻿"""Implement an Automated Log Analysis Utility with Error Pattern Detection
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,7 +6,7 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
@@ -21,7 +21,7 @@ class LogAnalyzerAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
 
@@ -30,8 +30,6 @@ class LogAnalyzerApp:
         self.state = LogAnalyzerAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
-        self.seed = 42
-        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -158,7 +156,7 @@ class LogAnalyzerApp:
             'flags': self.state.flags,
             'history': self.history_tail(10),
         }
-        return self.save_json('state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -200,82 +198,36 @@ class LogAnalyzerApp:
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Processing')
-        items = self.dataset()
-        result = self.process_dataset(items)
-        self.record('result', result)
-        print(json.dumps(result, indent=2))
+        self.section('Log Analysis')
+        logs = [
+            '[2026-05-01 10:00:00] INFO: Server started',
+            '[2026-05-01 10:01:00] ERROR: Connection failed to database',
+            '[2026-05-01 10:02:00] WARN: Memory usage high',
+            '[2026-05-01 10:03:00] INFO: Request received',
+            '[2026-05-01 10:04:00] ERROR: Timeout occurred',
+            '[2026-05-01 10:05:00] INFO: Response sent',
+            '[2026-05-01 10:06:00] ERROR: Disk full',
+        ]
+        levels = {'INFO': 0, 'WARN': 0, 'ERROR': 0}
+        errors = []
+        for entry in logs:
+            for level in levels:
+                if level in entry:
+                    levels[level] += 1
+                    if level == 'ERROR':
+                        errors.append(entry)
+                    break
+        print(self.format_kv('INFO count', levels['INFO']))
+        print(self.format_kv('WARN count', levels['WARN']))
+        print(self.format_kv('ERROR count', levels['ERROR']))
+        print()
+        if errors:
+            self.section('ERROR Details')
+            for err in errors:
+                print(f'  {err}')
+        self.record('log_count', levels)
+        self.record('errors', errors)
         self.display_report()
-    def log_analyzer_utility_1(self, value: Any) -> Any:
-        """Utility routine 1 tuned for log_analyzer."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def log_analyzer_utility_2(self, value: Any) -> Any:
-        """Utility routine 2 tuned for log_analyzer."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def log_analyzer_utility_3(self, value: Any) -> Any:
-        """Utility routine 3 tuned for log_analyzer."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def log_analyzer_utility_4(self, value: Any) -> Any:
-        """Utility routine 4 tuned for log_analyzer."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def log_analyzer_utility_5(self, value: Any) -> Any:
-        """Utility routine 5 tuned for log_analyzer."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def log_analyzer_utility_6(self, value: Any) -> Any:
-        """Utility routine 6 tuned for log_analyzer."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def log_analyzer_utility_7(self, value: Any) -> Any:
-        """Utility routine 7 tuned for log_analyzer."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')

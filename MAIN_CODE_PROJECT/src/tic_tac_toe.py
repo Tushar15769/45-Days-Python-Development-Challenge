@@ -1,4 +1,4 @@
-"""Build an Interactive Tic Tac Toe Gaming Application with Winner Detection Logic
+﻿"""Build an Interactive Tic Tac Toe Gaming Application with Winner Detection Logic
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,7 +6,7 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
@@ -21,7 +21,7 @@ class TicTacToeAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
 
@@ -30,8 +30,6 @@ class TicTacToeApp:
         self.state = TicTacToeAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
-        self.seed = 42
-        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -158,7 +156,7 @@ class TicTacToeApp:
             'flags': self.state.flags,
             'history': self.history_tail(10),
         }
-        return self.save_json('state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -205,84 +203,44 @@ class TicTacToeApp:
             'results': results
         }
 
+    def print_board(self, board: List[List[str]]) -> None:
+        for row in board:
+            print(' | '.join(cell if cell != '' else ' ' for cell in row))
+            print('-' * 9)
+
+    def check_winner(self, board: List[List[str]]) -> Optional[str]:
+        for row in board:
+            if row[0] == row[1] == row[2] != '':
+                return row[0]
+        for col in range(3):
+            if board[0][col] == board[1][col] == board[2][col] != '':
+                return board[0][col]
+        if board[0][0] == board[1][1] == board[2][2] != '':
+            return board[0][0]
+        if board[0][2] == board[1][1] == board[2][0] != '':
+            return board[0][2]
+        return None
+
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Processing')
-        items = self.dataset()
-        result = self.process_dataset(items)
-        self.record('result', result)
-        print(json.dumps(result, indent=2))
+        self.section('Tic-Tac-Toe Simulation')
+        board = [['' for _ in range(3)] for _ in range(3)]
+        moves = [('X', 0, 0), ('O', 1, 1), ('X', 0, 1), ('O', 2, 2), ('X', 0, 2), ('O', 1, 0), ('X', 2, 0)]
+        winner = None
+        for player, row, col in moves:
+            board[row][col] = player
+            print(f'Player {player} moves to ({row},{col}):')
+            self.print_board(board)
+            w = self.check_winner(board)
+            if w:
+                winner = w
+                print(f'Player {w} wins!')
+                break
+        if not winner:
+            print('Game ends in a draw!')
+        self.record('final_board', board)
+        self.record('winner', winner if winner else 'Draw')
         self.display_report()
-    def tic_tac_toe_utility_1(self, value: Any) -> Any:
-        """Utility routine 1 tuned for tic_tac_toe."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def tic_tac_toe_utility_2(self, value: Any) -> Any:
-        """Utility routine 2 tuned for tic_tac_toe."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def tic_tac_toe_utility_3(self, value: Any) -> Any:
-        """Utility routine 3 tuned for tic_tac_toe."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def tic_tac_toe_utility_4(self, value: Any) -> Any:
-        """Utility routine 4 tuned for tic_tac_toe."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def tic_tac_toe_utility_5(self, value: Any) -> Any:
-        """Utility routine 5 tuned for tic_tac_toe."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def tic_tac_toe_utility_6(self, value: Any) -> Any:
-        """Utility routine 6 tuned for tic_tac_toe."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def tic_tac_toe_utility_7(self, value: Any) -> Any:
-        """Utility routine 7 tuned for tic_tac_toe."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')

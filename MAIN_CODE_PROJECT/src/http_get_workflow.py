@@ -1,4 +1,4 @@
-"""Implement a Robust HTTP GET Request Workflow with Response Validation and Structured Error Handling
+﻿"""Implement a Robust HTTP GET Request Workflow with Response Validation and Structured Error Handling
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,7 +6,7 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
@@ -25,7 +25,7 @@ class HttpGetWorkflowAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
 
@@ -34,8 +34,6 @@ class HttpGetWorkflowApp:
         self.state = HttpGetWorkflowAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
-        self.seed = 42
-        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -162,7 +160,7 @@ class HttpGetWorkflowApp:
             'flags': self.state.flags,
             'history': self.history_tail(10),
         }
-        return self.save_json('state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -206,7 +204,7 @@ class HttpGetWorkflowApp:
 
     def run(self) -> None:
         self.state.runs += 1
-        url = self.build_url('https://jsonplaceholder.typicode.com/posts/1', {})
+        url = 'https://jsonplaceholder.typicode.com/posts/1'
         try:
             data = self.fetch_json(url)
             self.record('last_response', data)
@@ -215,76 +213,6 @@ class HttpGetWorkflowApp:
             self.state.errors += 1
             self.log(f'HTTP workflow failed: {exc}')
         self.display_report()
-    def http_get_workflow_utility_1(self, value: Any) -> Any:
-        """Utility routine 1 tuned for http_get_workflow."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def http_get_workflow_utility_2(self, value: Any) -> Any:
-        """Utility routine 2 tuned for http_get_workflow."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def http_get_workflow_utility_3(self, value: Any) -> Any:
-        """Utility routine 3 tuned for http_get_workflow."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def http_get_workflow_utility_4(self, value: Any) -> Any:
-        """Utility routine 4 tuned for http_get_workflow."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def http_get_workflow_utility_5(self, value: Any) -> Any:
-        """Utility routine 5 tuned for http_get_workflow."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def http_get_workflow_utility_6(self, value: Any) -> Any:
-        """Utility routine 6 tuned for http_get_workflow."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def http_get_workflow_utility_7(self, value: Any) -> Any:
-        """Utility routine 7 tuned for http_get_workflow."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')

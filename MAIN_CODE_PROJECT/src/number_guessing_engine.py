@@ -1,4 +1,4 @@
-"""Create an Intelligent Number Guessing Engine with Dynamic Hint Generation System
+﻿"""Create an Intelligent Number Guessing Engine with Dynamic Hint Generation System
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,7 +6,7 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
@@ -21,7 +21,7 @@ class NumberGuessingEngineAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
 
@@ -30,8 +30,6 @@ class NumberGuessingEngineApp:
         self.state = NumberGuessingEngineAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
-        self.seed = 42
-        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -158,7 +156,7 @@ class NumberGuessingEngineApp:
             'flags': self.state.flags,
             'history': self.history_tail(10),
         }
-        return self.save_json('state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -177,7 +175,7 @@ class NumberGuessingEngineApp:
         ]
 
     def pick_target(self) -> int:
-        return 42
+        return random.randint(1, 100)
 
     def hint(self, guess: int, target: int) -> str:
         if guess < target:
@@ -189,84 +187,26 @@ class NumberGuessingEngineApp:
     def run(self) -> None:
         self.state.runs += 1
         target = self.pick_target()
-        guesses = [10, 50, 42]
+        attempts = 0
+        max_attempts = 10
         self.section('Guessing Game')
-        for guess in guesses:
+        print(f'I have picked a number between 1 and 100. Can you guess it?')
+        while attempts < max_attempts:
+            try:
+                raw = input(f'Attempt {attempts + 1}/{max_attempts} - Enter your guess: ')
+                guess = int(raw.strip())
+            except (ValueError, TypeError):
+                print('Please enter a valid integer.')
+                continue
+            attempts += 1
             answer = self.hint(guess, target)
             print(self.format_kv(f'guess {guess}', answer))
             if answer == 'correct':
+                self.log(f'You got it in {attempts} attempts!')
                 break
+        else:
+            self.log(f'Sorry, you ran out of attempts. The number was {target}.')
         self.display_report()
-    def number_guessing_engine_utility_1(self, value: Any) -> Any:
-        """Utility routine 1 tuned for number_guessing_engine."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def number_guessing_engine_utility_2(self, value: Any) -> Any:
-        """Utility routine 2 tuned for number_guessing_engine."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def number_guessing_engine_utility_3(self, value: Any) -> Any:
-        """Utility routine 3 tuned for number_guessing_engine."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def number_guessing_engine_utility_4(self, value: Any) -> Any:
-        """Utility routine 4 tuned for number_guessing_engine."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def number_guessing_engine_utility_5(self, value: Any) -> Any:
-        """Utility routine 5 tuned for number_guessing_engine."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def number_guessing_engine_utility_6(self, value: Any) -> Any:
-        """Utility routine 6 tuned for number_guessing_engine."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def number_guessing_engine_utility_7(self, value: Any) -> Any:
-        """Utility routine 7 tuned for number_guessing_engine."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')

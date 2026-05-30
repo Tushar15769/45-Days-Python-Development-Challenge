@@ -1,4 +1,4 @@
-"""Implement a Secure Data Encryption and Decryption Utility Using Basic Cryptographic Techniques
+﻿"""Implement a Secure Data Encryption and Decryption Utility Using Basic Cryptographic Techniques
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,7 +6,7 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
@@ -21,7 +21,7 @@ class EncryptionDecryptionAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
 
@@ -30,8 +30,6 @@ class EncryptionDecryptionApp:
         self.state = EncryptionDecryptionAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
-        self.seed = 42
-        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -158,7 +156,7 @@ class EncryptionDecryptionApp:
             'flags': self.state.flags,
             'history': self.history_tail(10),
         }
-        return self.save_json('state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -206,84 +204,33 @@ class EncryptionDecryptionApp:
             'encryption_results': runs
         }
 
+    def caesar_encrypt(self, text: str, shift: int = 3) -> str:
+        result = []
+        for ch in text:
+            if ch.isalpha():
+                base = ord('A') if ch.isupper() else ord('a')
+                result.append(chr((ord(ch) - base + shift) % 26 + base))
+            else:
+                result.append(ch)
+        return ''.join(result)
+
+    def caesar_decrypt(self, text: str, shift: int = 3) -> str:
+        return self.caesar_encrypt(text, -shift)
+
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Processing')
-        items = self.dataset()
-        result = self.process_dataset(items)
-        self.record('result', result)
-        print(json.dumps(result, indent=2))
+        self.section('Encryption / Decryption')
+        original = "Hello World"
+        encrypted = self.caesar_encrypt(original)
+        decrypted = self.caesar_decrypt(encrypted)
+        substitution = {chr(ord('a') + i): chr(ord('z') - i) for i in range(26)}
+        sub_encrypted = ''.join(substitution.get(ch.lower(), ch) for ch in original.lower())
+        print(self.format_kv('Original', original))
+        print(self.format_kv('Encrypted (Caesar)', encrypted))
+        print(self.format_kv('Decrypted', decrypted))
+        print(self.format_kv('Substitution', sub_encrypted))
+        self.record('cipher', {'original': original, 'caesar_encrypted': encrypted, 'caesar_decrypted': decrypted, 'substitution': sub_encrypted})
         self.display_report()
-    def encryption_decryption_utility_1(self, value: Any) -> Any:
-        """Utility routine 1 tuned for encryption_decryption."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def encryption_decryption_utility_2(self, value: Any) -> Any:
-        """Utility routine 2 tuned for encryption_decryption."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def encryption_decryption_utility_3(self, value: Any) -> Any:
-        """Utility routine 3 tuned for encryption_decryption."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def encryption_decryption_utility_4(self, value: Any) -> Any:
-        """Utility routine 4 tuned for encryption_decryption."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def encryption_decryption_utility_5(self, value: Any) -> Any:
-        """Utility routine 5 tuned for encryption_decryption."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def encryption_decryption_utility_6(self, value: Any) -> Any:
-        """Utility routine 6 tuned for encryption_decryption."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def encryption_decryption_utility_7(self, value: Any) -> Any:
-        """Utility routine 7 tuned for encryption_decryption."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')

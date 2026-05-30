@@ -1,4 +1,4 @@
-"""Develop a Dynamic Image Downloading and Processing Workflow
+﻿"""Develop a Dynamic Image Downloading and Processing Workflow
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,7 +6,7 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
@@ -21,7 +21,7 @@ class ImageProcessingAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
 
@@ -30,8 +30,6 @@ class ImageProcessingApp:
         self.state = ImageProcessingAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
-        self.seed = 42
-        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -158,7 +156,7 @@ class ImageProcessingApp:
             'flags': self.state.flags,
             'history': self.history_tail(10),
         }
-        return self.save_json('state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -197,82 +195,32 @@ class ImageProcessingApp:
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Processing')
-        items = self.dataset()
-        result = self.process_dataset(items)
-        self.record('result', result)
-        print(json.dumps(result, indent=2))
+        self.section('Image Processing')
+        image = [[random.randint(0, 255) for _ in range(5)] for _ in range(5)]
+        print('Before:')
+        for row in image:
+            print(' '.join(f'{p:3d}' for p in row))
+        bright = [[min(255, p + 10) for p in row] for row in image]
+        inverted = [[255 - p for p in row] for row in image]
+        flat = [p for row in image for p in row]
+        stats = self.summarize_list(flat)
+        print()
+        self.section('After Brightness (+10)')
+        for row in bright:
+            print(' '.join(f'{p:3d}' for p in row))
+        print()
+        self.section('After Invert')
+        for row in inverted:
+            print(' '.join(f'{p:3d}' for p in row))
+        print()
+        print(self.format_kv('Min pixel', stats['min']))
+        print(self.format_kv('Max pixel', stats['max']))
+        print(self.format_kv('Mean pixel', stats['avg']))
+        self.record('original', image)
+        self.record('brightness_adjusted', bright)
+        self.record('inverted', inverted)
+        self.record('statistics', stats)
         self.display_report()
-    def image_processing_utility_1(self, value: Any) -> Any:
-        """Utility routine 1 tuned for image_processing."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def image_processing_utility_2(self, value: Any) -> Any:
-        """Utility routine 2 tuned for image_processing."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def image_processing_utility_3(self, value: Any) -> Any:
-        """Utility routine 3 tuned for image_processing."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def image_processing_utility_4(self, value: Any) -> Any:
-        """Utility routine 4 tuned for image_processing."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def image_processing_utility_5(self, value: Any) -> Any:
-        """Utility routine 5 tuned for image_processing."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def image_processing_utility_6(self, value: Any) -> Any:
-        """Utility routine 6 tuned for image_processing."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def image_processing_utility_7(self, value: Any) -> Any:
-        """Utility routine 7 tuned for image_processing."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')

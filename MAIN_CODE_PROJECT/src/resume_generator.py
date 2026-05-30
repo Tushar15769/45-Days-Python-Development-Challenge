@@ -1,4 +1,4 @@
-"""Create a Dynamic Resume Information Generator with Structured Formatting
+﻿"""Create a Dynamic Resume Information Generator with Structured Formatting
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,7 +6,7 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
@@ -21,7 +21,7 @@ class ResumeGeneratorAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
 
@@ -30,8 +30,6 @@ class ResumeGeneratorApp:
         self.state = ResumeGeneratorAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
-        self.seed = 42
-        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -158,7 +156,7 @@ class ResumeGeneratorApp:
             'flags': self.state.flags,
             'history': self.history_tail(10),
         }
-        return self.save_json('state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -209,82 +207,33 @@ class ResumeGeneratorApp:
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Processing')
-        items = self.dataset()
-        result = self.process_dataset(items)
-        self.record('result', result)
-        print(json.dumps(result, indent=2))
+        self.section('Resume Generator')
+        resume = {
+            'name': 'John Doe',
+            'title': 'Python Developer',
+            'skills': ['Python', 'Flask', 'Git', 'SQL'],
+            'experience': [
+                {'company': 'Tech Corp', 'role': 'Junior Dev', 'years': 2},
+                {'company': 'Startup Inc', 'role': 'Developer', 'years': 3},
+            ],
+            'education': {'degree': 'B.Tech CSE', 'year': 2020},
+        }
+        total_years = sum(exp['years'] for exp in resume['experience'])
+        print(f"Name: {resume['name']}")
+        print(f"Title: {resume['title']}")
+        print(f"Skills: {', '.join(resume['skills'])}")
+        print()
+        self.section('Experience')
+        for exp in resume['experience']:
+            print(f"{exp['role']} at {exp['company']} ({exp['years']} yrs)")
+        print()
+        print(self.format_kv('Total experience', f'{total_years} years'))
+        self.section('Education')
+        edu = resume['education']
+        print(f"{edu['degree']} - {edu['year']}")
+        self.record('resume', resume)
+        self.record('total_experience_years', total_years)
         self.display_report()
-    def resume_generator_utility_1(self, value: Any) -> Any:
-        """Utility routine 1 tuned for resume_generator."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def resume_generator_utility_2(self, value: Any) -> Any:
-        """Utility routine 2 tuned for resume_generator."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def resume_generator_utility_3(self, value: Any) -> Any:
-        """Utility routine 3 tuned for resume_generator."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def resume_generator_utility_4(self, value: Any) -> Any:
-        """Utility routine 4 tuned for resume_generator."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def resume_generator_utility_5(self, value: Any) -> Any:
-        """Utility routine 5 tuned for resume_generator."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def resume_generator_utility_6(self, value: Any) -> Any:
-        """Utility routine 6 tuned for resume_generator."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
-    def resume_generator_utility_7(self, value: Any) -> Any:
-        """Utility routine 7 tuned for resume_generator."""
-        if isinstance(value, str):
-            return self.normalize_text(value)
-        if isinstance(value, (int, float)):
-            return self.clamp(float(value), -1_000_000, 1_000_000)
-        if isinstance(value, list):
-            return [self.normalize_text(str(x)) for x in value]
-        return value
-
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')
