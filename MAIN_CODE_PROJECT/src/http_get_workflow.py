@@ -12,11 +12,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import json
 import math
 import os
-<<<<<<< Updated upstream
-import random
-import statistics
-=======
->>>>>>> Stashed changes
 import time
 
 import urllib.error
@@ -201,20 +196,6 @@ class HttpGetWorkflowApp:
 
     def display_result(self, data: Dict[str, Any]) -> None:
         self.section('HTTP Response')
-<<<<<<< Updated upstream
-        for key in ['status_code', 'elapsed_seconds', 'title', 'raw']:
-            if key in data:
-                print(self.format_kv(key, data[key]))
-=======
-        print(self.format_kv('status_code', result.get('status_code')))
-        print(self.format_kv('elapsed_seconds', result.get('elapsed_seconds')))
-        data = result.get('data', {})
-        if 'raw' in data:
-            print(self.format_kv('raw', data['raw']))
-        else:
-            for key, value in data.items():
-                print(self.format_kv(key, value))
->>>>>>> Stashed changes
 
     def run(self) -> None:
         self.state.runs += 1
