@@ -8,10 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 import json
-import math
-import os
 import random
 import statistics
 import time
@@ -81,7 +79,7 @@ class CsvAnalysisApp:
     def render_table(self, rows: List[Dict[str, Any]]) -> str:
         if not rows:
             return '(empty)'
-        keys = list(rows[0].keys())
+        keys = list(dict.fromkeys(k for row in rows for k in row))
         widths = {k: max(len(k), max(len(str(row.get(k, ''))) for row in rows)) for k in keys}
         header = ' | '.join(k.ljust(widths[k]) for k in keys)
         lines = [header, '-+-'.join('-' * widths[k] for k in keys)]
@@ -150,7 +148,7 @@ class CsvAnalysisApp:
             'errors': self.state.errors,
             'records': self.state.records,
             'flags': self.state.flags,
-            'history': self.history_tail(10),
+            'history': self.state.history,
         }
         return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
@@ -227,3 +225,18 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+<<<<<<< Updated upstream
+=======
+
+
+
+
+
+
+
+
+
+
+
+
+>>>>>>> Stashed changes

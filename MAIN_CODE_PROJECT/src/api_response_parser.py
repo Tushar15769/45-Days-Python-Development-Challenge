@@ -8,12 +8,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 import json
-import math
-import os
 import random
-import statistics
 import time
 
 @dataclass
@@ -81,7 +78,7 @@ class ApiResponseParserApp:
     def render_table(self, rows: List[Dict[str, Any]]) -> str:
         if not rows:
             return '(empty)'
-        keys = list(rows[0].keys())
+        keys = list(dict.fromkeys(k for row in rows for k in row))
         widths = {k: max(len(k), max(len(str(row.get(k, ''))) for row in rows)) for k in keys}
         header = ' | '.join(k.ljust(widths[k]) for k in keys)
         lines = [header, '-+-'.join('-' * widths[k] for k in keys)]
@@ -126,20 +123,6 @@ class ApiResponseParserApp:
             'avg': round(sum(values) / len(values), 4),
         }
 
-    def stats_from_numbers(self, values: List[float]) -> Dict[str, Any]:
-        if not values:
-            return {'mean': 0, 'median': 0, 'mode': None, 'stdev': 0}
-        try:
-            mode_value = statistics.mode(values)
-        except Exception:
-            mode_value = None
-        return {
-            'mean': round(statistics.mean(values), 4),
-            'median': round(statistics.median(values), 4),
-            'mode': mode_value,
-            'stdev': round(statistics.pstdev(values), 4) if len(values) > 1 else 0,
-        }
-
     def history_tail(self, count: int = 5) -> List[str]:
         return self.state.history[-count:]
 
@@ -150,7 +133,7 @@ class ApiResponseParserApp:
             'errors': self.state.errors,
             'records': self.state.records,
             'flags': self.state.flags,
-            'history': self.history_tail(10),
+            'history': self.state.history,
         }
         return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
@@ -170,19 +153,25 @@ class ApiResponseParserApp:
             {'name': 'gamma', 'value': 3, 'active': True},
         ]
 
-    def deep_get(self, payload: Dict[str, Any], path: str) -> Any:
+    def deep_get(self, payload: Dict[str, Any], path: str, default: Any = None) -> Any:
+        # Define a unique sentinel object for missing keys
+        MISSING = object()
         current: Any = payload
         for part in path.split('.'):
             if isinstance(current, dict) and part in current:
                 current = current[part]
             else:
-                return None
+                return default
         return current
 
     def parse_fields(self, payload: Dict[str, Any], fields: List[str]) -> Dict[str, Any]:
         parsed: Dict[str, Any] = {}
         for field in fields:
-            parsed[field] = self.deep_get(payload, field)
+            # Use the sentinel to identify missing paths
+            MISSING = object()
+            val = self.deep_get(payload, field, default=MISSING)
+            if val is not MISSING:
+                parsed[field] = val
         return parsed
 
     def run(self) -> None:
@@ -207,3 +196,18 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+<<<<<<< Updated upstream
+=======
+
+
+
+
+
+
+
+
+
+
+
+
+>>>>>>> Stashed changes
