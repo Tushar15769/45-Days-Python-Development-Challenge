@@ -1,4 +1,4 @@
-"""Build a PDF Information Extraction Utility with Structured Content Parsing
+﻿"""Build a PDF Information Extraction Utility with Structured Content Parsing
 
 Generated for the 45-day Python development challenge.
 """
@@ -90,7 +90,7 @@ class PdfExtractorApp:
 
     def save_json(self, name: str, payload: Dict[str, Any]) -> Path:
         path = self.output_dir / name
-        path.write_text(json.dumps(payload, indent=2, default=str), encoding='utf-8')
+        tmp = path.with_suffix(".tmp"); tmp.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8"); os.replace(tmp, path)
         return path
 
     def load_json(self, path: Path) -> Dict[str, Any]:
@@ -103,7 +103,7 @@ class PdfExtractorApp:
 
     def save_text(self, name: str, content: str) -> Path:
         path = self.output_dir / name
-        path.write_text(content, encoding='utf-8')
+        tmp = path.with_suffix(".tmp"); tmp.write_text(content, encoding="utf-8"); os.replace(tmp, path)
         return path
 
     def load_text(self, path: Path) -> str:
@@ -339,18 +339,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-<<<<<<< Updated upstream
-=======
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> Stashed changes
