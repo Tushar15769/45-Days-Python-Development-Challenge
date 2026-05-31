@@ -1,4 +1,4 @@
-﻿"""Create a Dynamic CSV Data Analysis Utility with Statistical Insights
+"""Create a Dynamic CSV Data Analysis Utility with Statistical Insights
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,10 +6,12 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 import json
+import math
+import os
 import random
 import statistics
 import time
@@ -19,15 +21,18 @@ class CsvAnalysisAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=datetime.utcnow)
     runs: int = 0
     errors: int = 0
 
 class CsvAnalysisApp:
+
     def __init__(self) -> None:
         self.state = CsvAnalysisAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
+        self.seed = 42
+        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -79,7 +84,7 @@ class CsvAnalysisApp:
     def render_table(self, rows: List[Dict[str, Any]]) -> str:
         if not rows:
             return '(empty)'
-        keys = list(dict.fromkeys(k for row in rows for k in row))
+        keys = list(rows[0].keys())
         widths = {k: max(len(k), max(len(str(row.get(k, ''))) for row in rows)) for k in keys}
         header = ' | '.join(k.ljust(widths[k]) for k in keys)
         lines = [header, '-+-'.join('-' * widths[k] for k in keys)]
@@ -152,9 +157,9 @@ class CsvAnalysisApp:
             'errors': self.state.errors,
             'records': self.state.records,
             'flags': self.state.flags,
-            'history': self.state.history,
+            'history': self.history_tail(10),
         }
-        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
+        return self.save_json('state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -194,27 +199,83 @@ class CsvAnalysisApp:
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('CSV Analysis')
-        employees = [
-            {'name': 'Alice', 'age': 30, 'salary': 55000},
-            {'name': 'Bob', 'age': 25, 'salary': 48000},
-            {'name': 'Charlie', 'age': 35, 'salary': 72000},
-            {'name': 'Diana', 'age': 28, 'salary': 51000},
-            {'name': 'Eve', 'age': 32, 'salary': 65000},
-        ]
-        print(self.render_table(employees))
-        ages = [e['age'] for e in employees]
-        salaries = [e['salary'] for e in employees]
-        top_earner = max(employees, key=lambda e: e['salary'])
-        print()
-        print(self.format_kv('Average age', round(sum(ages) / len(ages), 1)))
-        print(self.format_kv('Min salary', min(salaries)))
-        print(self.format_kv('Max salary', max(salaries)))
-        print(self.format_kv('Top earner', f"{top_earner['name']} (${top_earner['salary']})"))
-        self.record('employees', employees)
-        self.record('avg_age', round(sum(ages) / len(ages), 1))
-        self.record('top_earner', top_earner)
+        self.section('Processing')
+        items = self.dataset()
+        result = self.process_dataset(items)
+        self.record('result', result)
+        print(json.dumps(result, indent=2))
         self.display_report()
+
+    def csv_analysis_utility_1(self, value: Any) -> Any:
+        """Utility routine 1 tuned for csv_analysis."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def csv_analysis_utility_2(self, value: Any) -> Any:
+        """Utility routine 2 tuned for csv_analysis."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def csv_analysis_utility_3(self, value: Any) -> Any:
+        """Utility routine 3 tuned for csv_analysis."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def csv_analysis_utility_4(self, value: Any) -> Any:
+        """Utility routine 4 tuned for csv_analysis."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def csv_analysis_utility_5(self, value: Any) -> Any:
+        """Utility routine 5 tuned for csv_analysis."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def csv_analysis_utility_6(self, value: Any) -> Any:
+        """Utility routine 6 tuned for csv_analysis."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def csv_analysis_utility_7(self, value: Any) -> Any:
+        """Utility routine 7 tuned for csv_analysis."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')
@@ -229,18 +290,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-<<<<<<< Updated upstream
-=======
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> Stashed changes

@@ -1,4 +1,4 @@
-﻿"""Develop a Dynamic API Response Parsing System with Selective Data Extraction Logic
+"""Develop a Dynamic API Response Parsing System with Selective Data Extraction Logic
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,11 +6,14 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 import json
+import math
+import os
 import random
+import statistics
 import time
 
 @dataclass
@@ -18,15 +21,18 @@ class ApiResponseParserAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=datetime.utcnow)
     runs: int = 0
     errors: int = 0
 
 class ApiResponseParserApp:
+
     def __init__(self) -> None:
         self.state = ApiResponseParserAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
+        self.seed = 42
+        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -78,7 +84,7 @@ class ApiResponseParserApp:
     def render_table(self, rows: List[Dict[str, Any]]) -> str:
         if not rows:
             return '(empty)'
-        keys = list(dict.fromkeys(k for row in rows for k in row))
+        keys = list(rows[0].keys())
         widths = {k: max(len(k), max(len(str(row.get(k, ''))) for row in rows)) for k in keys}
         header = ' | '.join(k.ljust(widths[k]) for k in keys)
         lines = [header, '-+-'.join('-' * widths[k] for k in keys)]
@@ -127,6 +133,20 @@ class ApiResponseParserApp:
             'avg': round(sum(values) / len(values), 4),
         }
 
+    def stats_from_numbers(self, values: List[float]) -> Dict[str, Any]:
+        if not values:
+            return {'mean': 0, 'median': 0, 'mode': None, 'stdev': 0}
+        try:
+            mode_value = statistics.mode(values)
+        except Exception:
+            mode_value = None
+        return {
+            'mean': round(statistics.mean(values), 4),
+            'median': round(statistics.median(values), 4),
+            'mode': mode_value,
+            'stdev': round(statistics.pstdev(values), 4) if len(values) > 1 else 0,
+        }
+
     def history_tail(self, count: int = 5) -> List[str]:
         return self.state.history[-count:]
 
@@ -137,9 +157,9 @@ class ApiResponseParserApp:
             'errors': self.state.errors,
             'records': self.state.records,
             'flags': self.state.flags,
-            'history': self.state.history,
+            'history': self.history_tail(10),
         }
-        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
+        return self.save_json('state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -157,25 +177,19 @@ class ApiResponseParserApp:
             {'name': 'gamma', 'value': 3, 'active': True},
         ]
 
-    def deep_get(self, payload: Dict[str, Any], path: str, default: Any = None) -> Any:
-        # Define a unique sentinel object for missing keys
-        MISSING = object()
+    def deep_get(self, payload: Dict[str, Any], path: str) -> Any:
         current: Any = payload
         for part in path.split('.'):
             if isinstance(current, dict) and part in current:
                 current = current[part]
             else:
-                return default
+                return None
         return current
 
     def parse_fields(self, payload: Dict[str, Any], fields: List[str]) -> Dict[str, Any]:
         parsed: Dict[str, Any] = {}
         for field in fields:
-            # Use the sentinel to identify missing paths
-            MISSING = object()
-            val = self.deep_get(payload, field, default=MISSING)
-            if val is not MISSING:
-                parsed[field] = val
+            parsed[field] = self.deep_get(payload, field)
         return parsed
 
     def run(self) -> None:
@@ -186,6 +200,77 @@ class ApiResponseParserApp:
         self.section('Parsed Data')
         print(json.dumps(parsed, indent=2))
         self.display_report()
+
+    def api_response_parser_utility_1(self, value: Any) -> Any:
+        """Utility routine 1 tuned for api_response_parser."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def api_response_parser_utility_2(self, value: Any) -> Any:
+        """Utility routine 2 tuned for api_response_parser."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def api_response_parser_utility_3(self, value: Any) -> Any:
+        """Utility routine 3 tuned for api_response_parser."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def api_response_parser_utility_4(self, value: Any) -> Any:
+        """Utility routine 4 tuned for api_response_parser."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def api_response_parser_utility_5(self, value: Any) -> Any:
+        """Utility routine 5 tuned for api_response_parser."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def api_response_parser_utility_6(self, value: Any) -> Any:
+        """Utility routine 6 tuned for api_response_parser."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def api_response_parser_utility_7(self, value: Any) -> Any:
+        """Utility routine 7 tuned for api_response_parser."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')
@@ -200,18 +285,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-<<<<<<< Updated upstream
-=======
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> Stashed changes

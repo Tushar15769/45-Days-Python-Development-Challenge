@@ -1,4 +1,4 @@
-﻿"""Build a Dynamic Inventory Management Utility with Quantity Tracking Features
+"""Build a Dynamic Inventory Management Utility with Quantity Tracking Features
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,11 +6,14 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 import json
+import math
+import os
 import random
+import statistics
 import time
 
 @dataclass
@@ -18,15 +21,18 @@ class InventoryManagerAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=datetime.utcnow)
     runs: int = 0
     errors: int = 0
 
 class InventoryManagerApp:
+
     def __init__(self) -> None:
         self.state = InventoryManagerAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
+        self.seed = 42
+        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -78,7 +84,7 @@ class InventoryManagerApp:
     def render_table(self, rows: List[Dict[str, Any]]) -> str:
         if not rows:
             return '(empty)'
-        keys = list(dict.fromkeys(k for row in rows for k in row))
+        keys = list(rows[0].keys())
         widths = {k: max(len(k), max(len(str(row.get(k, ''))) for row in rows)) for k in keys}
         header = ' | '.join(k.ljust(widths[k]) for k in keys)
         lines = [header, '-+-'.join('-' * widths[k] for k in keys)]
@@ -127,6 +133,20 @@ class InventoryManagerApp:
             'avg': round(sum(values) / len(values), 4),
         }
 
+    def stats_from_numbers(self, values: List[float]) -> Dict[str, Any]:
+        if not values:
+            return {'mean': 0, 'median': 0, 'mode': None, 'stdev': 0}
+        try:
+            mode_value = statistics.mode(values)
+        except Exception:
+            mode_value = None
+        return {
+            'mean': round(statistics.mean(values), 4),
+            'median': round(statistics.median(values), 4),
+            'mode': mode_value,
+            'stdev': round(statistics.pstdev(values), 4) if len(values) > 1 else 0,
+        }
+
     def history_tail(self, count: int = 5) -> List[str]:
         return self.state.history[-count:]
 
@@ -137,9 +157,9 @@ class InventoryManagerApp:
             'errors': self.state.errors,
             'records': self.state.records,
             'flags': self.state.flags,
-            'history': self.state.history,
+            'history': self.history_tail(10),
         }
-        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
+        return self.save_json('state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -178,32 +198,83 @@ class InventoryManagerApp:
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Inventory Manager')
-        items = [
-            {'name': 'Widget', 'qty': 50, 'price': 9.99},
-            {'name': 'Gadget', 'qty': 20, 'price': 24.99},
-            {'name': 'Doohickey', 'qty': 100, 'price': 4.99},
-        ]
-        print(self.render_table(items))
-        total_value = sum(i['qty'] * i['price'] for i in items)
-        total_items = sum(i['qty'] for i in items)
-        average_price = round(sum(i['price'] for i in items) / len(items), 2)
-        low_stock = [i for i in items if i['qty'] < 30]
-        self.section('Stock Analysis')
-        print(self.format_kv('Total value', round(total_value, 2)))
-        print(self.format_kv('Total items', total_items))
-        print(self.format_kv('Average price', average_price))
-        print(self.format_kv('Low stock items', len(low_stock)))
-        if low_stock:
-            print(self.render_table(low_stock))
-        result = {
-            'total_value': round(total_value, 2),
-            'total_items': total_items,
-            'average_price': average_price,
-            'low_stock': low_stock,
-        }
-        self.record('inventory_analysis', result)
+        self.section('Processing')
+        items = self.dataset()
+        result = self.process_dataset(items)
+        self.record('result', result)
+        print(json.dumps(result, indent=2))
         self.display_report()
+
+    def inventory_manager_utility_1(self, value: Any) -> Any:
+        """Utility routine 1 tuned for inventory_manager."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def inventory_manager_utility_2(self, value: Any) -> Any:
+        """Utility routine 2 tuned for inventory_manager."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def inventory_manager_utility_3(self, value: Any) -> Any:
+        """Utility routine 3 tuned for inventory_manager."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def inventory_manager_utility_4(self, value: Any) -> Any:
+        """Utility routine 4 tuned for inventory_manager."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def inventory_manager_utility_5(self, value: Any) -> Any:
+        """Utility routine 5 tuned for inventory_manager."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def inventory_manager_utility_6(self, value: Any) -> Any:
+        """Utility routine 6 tuned for inventory_manager."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def inventory_manager_utility_7(self, value: Any) -> Any:
+        """Utility routine 7 tuned for inventory_manager."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')
@@ -218,18 +289,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-<<<<<<< Updated upstream
-=======
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> Stashed changes

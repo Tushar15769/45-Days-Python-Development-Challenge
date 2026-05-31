@@ -1,4 +1,4 @@
-﻿"""Create a Secure Credential Storage Simulation Using Hashing Mechanisms
+"""Create a Secure Credential Storage Simulation Using Hashing Mechanisms
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,29 +6,33 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-import hashlib
 import json
+import math
+import os
 import random
+import statistics
 import time
-import hashlib
 
 @dataclass
 class CredentialStorageAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=datetime.utcnow)
     runs: int = 0
     errors: int = 0
 
 class CredentialStorageApp:
+
     def __init__(self) -> None:
         self.state = CredentialStorageAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
+        self.seed = 42
+        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -80,7 +84,7 @@ class CredentialStorageApp:
     def render_table(self, rows: List[Dict[str, Any]]) -> str:
         if not rows:
             return '(empty)'
-        keys = list(dict.fromkeys(k for row in rows for k in row))
+        keys = list(rows[0].keys())
         widths = {k: max(len(k), max(len(str(row.get(k, ''))) for row in rows)) for k in keys}
         header = ' | '.join(k.ljust(widths[k]) for k in keys)
         lines = [header, '-+-'.join('-' * widths[k] for k in keys)]
@@ -129,6 +133,20 @@ class CredentialStorageApp:
             'avg': round(sum(values) / len(values), 4),
         }
 
+    def stats_from_numbers(self, values: List[float]) -> Dict[str, Any]:
+        if not values:
+            return {'mean': 0, 'median': 0, 'mode': None, 'stdev': 0}
+        try:
+            mode_value = statistics.mode(values)
+        except Exception:
+            mode_value = None
+        return {
+            'mean': round(statistics.mean(values), 4),
+            'median': round(statistics.median(values), 4),
+            'mode': mode_value,
+            'stdev': round(statistics.pstdev(values), 4) if len(values) > 1 else 0,
+        }
+
     def history_tail(self, count: int = 5) -> List[str]:
         return self.state.history[-count:]
 
@@ -139,9 +157,9 @@ class CredentialStorageApp:
             'errors': self.state.errors,
             'records': self.state.records,
             'flags': self.state.flags,
-            'history': self.state.history,
+            'history': self.history_tail(10),
         }
-        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
+        return self.save_json('state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -154,65 +172,106 @@ class CredentialStorageApp:
 
     def demo_data(self) -> List[Dict[str, Any]]:
         return [
-            {'username': 'user1'},
-            {'username': 'admin'},
+            {'username': 'user1', 'plaintext_password': 'SuperSecretPassword123'},
+            {'username': 'admin', 'plaintext_password': 'admin_password_99'},
         ]
-
-    def hash_password(self, password: str) -> str:
-        return hashlib.sha256(password.encode('utf-8')).hexdigest()
-
-    def store_credential(self, username: str, password: str) -> Dict[str, Any]:
-        return {'username': username, 'password_hash': self.hash_password(password)}
-
-    def verify_credential(self, stored: Dict[str, Any], password: str) -> bool:
-        return stored.get('password_hash') == self.hash_password(password)
 
     def dataset(self) -> List[Dict[str, Any]]:
-        return [
-            self.store_credential('user1', 'SuperSecretPassword123'),
-            self.store_credential('admin', 'admin_password_99'),
-        ]
+        return self.demo_data()
 
     def process_dataset(self, items: List[Dict[str, Any]]) -> Dict[str, Any]:
+        import hashlib
         db_records = {}
         for cred in items:
             user = cred.get('username')
-            hashed = cred.get('password_hash', '')
+            pwd = cred.get('plaintext_password', '')
             if user:
-                db_records[user] = {'password_hash': hashed[:16] + '... (truncated)'}
-        verification_results = {}
-        test_cases = [('admin', 'admin_password_99'), ('admin', 'wrong_password')]
-        for username, pwd in test_cases:
-            stored = next((c for c in items if c.get('username') == username), None)
-            if stored:
-                verification_results[username] = self.verify_credential(stored, pwd)
+                hashed = hashlib.sha256(pwd.encode('utf-8')).hexdigest()
+                db_records[user] = hashed
         return {
             'records_created': len(db_records),
-            'database_simulation': db_records,
-            'verification_tests': verification_results
+            'database_simulation': db_records
         }
-
-    def hash_password(self, password: str) -> str:
-        salt = '5a1t'
-        return hashlib.sha256((password + salt).encode()).hexdigest()
-
-    def verify_password(self, password: str, stored_hash: str) -> bool:
-        return self.hash_password(password) == stored_hash
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Credential Storage')
-        hashed = self.hash_password('secret123')
-        credentials = {'username': 'admin', 'password_hash': hashed}
-        correct = self.verify_password('secret123', hashed)
-        incorrect = self.verify_password('wrongpass', hashed)
-        print(self.format_kv('Username', credentials['username']))
-        print(self.format_kv('Stored hash', hashed))
-        print(self.format_kv('Verify correct', str(correct)))
-        print(self.format_kv('Verify incorrect', str(incorrect)))
-        self.record('credentials', credentials)
-        self.record('verification', {'correct': correct, 'incorrect': incorrect})
+        self.section('Processing')
+        items = self.dataset()
+        result = self.process_dataset(items)
+        self.record('result', result)
+        print(json.dumps(result, indent=2))
         self.display_report()
+
+    def credential_storage_utility_1(self, value: Any) -> Any:
+        """Utility routine 1 tuned for credential_storage."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def credential_storage_utility_2(self, value: Any) -> Any:
+        """Utility routine 2 tuned for credential_storage."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def credential_storage_utility_3(self, value: Any) -> Any:
+        """Utility routine 3 tuned for credential_storage."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def credential_storage_utility_4(self, value: Any) -> Any:
+        """Utility routine 4 tuned for credential_storage."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def credential_storage_utility_5(self, value: Any) -> Any:
+        """Utility routine 5 tuned for credential_storage."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def credential_storage_utility_6(self, value: Any) -> Any:
+        """Utility routine 6 tuned for credential_storage."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def credential_storage_utility_7(self, value: Any) -> Any:
+        """Utility routine 7 tuned for credential_storage."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')
@@ -227,18 +286,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-<<<<<<< Updated upstream
-=======
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> Stashed changes
