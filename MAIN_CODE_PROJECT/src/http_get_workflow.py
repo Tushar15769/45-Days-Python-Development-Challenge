@@ -12,11 +12,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import json
 import math
 import os
-<<<<<<< Updated upstream
-import random
-import statistics
-=======
->>>>>>> Stashed changes
 import time
 
 import urllib.error
