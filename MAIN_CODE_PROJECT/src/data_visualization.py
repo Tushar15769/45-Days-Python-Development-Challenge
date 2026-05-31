@@ -1,4 +1,4 @@
-"""Develop a Structured Data Visualization Workflow for Analytical Representation
+﻿"""Develop a Structured Data Visualization Workflow for Analytical Representation
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,11 +6,14 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 import json
+import math
+import os
 import random
+import statistics
 import time
 
 @dataclass
@@ -80,7 +83,7 @@ class DataVisualizationApp:
     def render_table(self, rows: List[Dict[str, Any]]) -> str:
         if not rows:
             return '(empty)'
-        keys = list(dict.fromkeys(k for row in rows for k in row))
+        keys = list(rows[0].keys())
         widths = {k: max(len(k), max(len(str(row.get(k, ''))) for row in rows)) for k in keys}
         header = ' | '.join(k.ljust(widths[k]) for k in keys)
         lines = [header, '-+-'.join('-' * widths[k] for k in keys)]
@@ -129,6 +132,20 @@ class DataVisualizationApp:
             'avg': round(sum(values) / len(values), 4),
         }
 
+    def stats_from_numbers(self, values: List[float]) -> Dict[str, Any]:
+        if not values:
+            return {'mean': 0, 'median': 0, 'mode': None, 'stdev': 0}
+        try:
+            mode_value = statistics.mode(values)
+        except Exception:
+            mode_value = None
+        return {
+            'mean': round(statistics.mean(values), 4),
+            'median': round(statistics.median(values), 4),
+            'mode': mode_value,
+            'stdev': round(statistics.pstdev(values), 4) if len(values) > 1 else 0,
+        }
+
     def history_tail(self, count: int = 5) -> List[str]:
         return self.state.history[-count:]
 
@@ -139,7 +156,7 @@ class DataVisualizationApp:
             'errors': self.state.errors,
             'records': self.state.records,
             'flags': self.state.flags,
-            'history': self.state.history,
+            'history': self.history_tail(10),
         }
         return self.save_json('state.json', payload)
 
@@ -172,22 +189,18 @@ class DataVisualizationApp:
             bar_len = int((val / max_val) * 20)
             bar = '#' * bar_len
             chart_lines.append(f'{label:<5} | {bar} ({val})')
-        chart = '\n'.join(chart_lines)
-        chart_path = self.save_text('chart.txt', chart)
-        self.log(f'Chart saved to {chart_path}')
         return {
             'data_points': len(items),
-            'ascii_chart': chart
+            'ascii_chart': '\n'.join(chart_lines)
         }
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Data Visualization')
+        self.section('Processing')
         items = self.dataset()
         result = self.process_dataset(items)
         self.record('result', result)
-        self.section('Bar Chart')
-        print(result['ascii_chart'])
+        print(json.dumps(result, indent=2))
         self.display_report()
     def data_visualization_utility_1(self, value: Any) -> Any:
         """Utility routine 1 tuned for data_visualization."""
@@ -273,18 +286,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-<<<<<<< Updated upstream
-=======
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> Stashed changes

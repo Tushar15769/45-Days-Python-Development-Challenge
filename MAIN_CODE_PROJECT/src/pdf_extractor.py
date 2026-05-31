@@ -1,4 +1,4 @@
-"""Build a PDF Information Extraction Utility with Structured Content Parsing
+﻿"""Build a PDF Information Extraction Utility with Structured Content Parsing
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,11 +6,14 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 import json
+import math
+import os
 import random
+import statistics
 import time
 
 @dataclass
@@ -80,7 +83,7 @@ class PdfExtractorApp:
     def render_table(self, rows: List[Dict[str, Any]]) -> str:
         if not rows:
             return '(empty)'
-        keys = list(dict.fromkeys(k for row in rows for k in row))
+        keys = list(rows[0].keys())
         widths = {k: max(len(k), max(len(str(row.get(k, ''))) for row in rows)) for k in keys}
         header = ' | '.join(k.ljust(widths[k]) for k in keys)
         lines = [header, '-+-'.join('-' * widths[k] for k in keys)]
@@ -129,6 +132,20 @@ class PdfExtractorApp:
             'avg': round(sum(values) / len(values), 4),
         }
 
+    def stats_from_numbers(self, values: List[float]) -> Dict[str, Any]:
+        if not values:
+            return {'mean': 0, 'median': 0, 'mode': None, 'stdev': 0}
+        try:
+            mode_value = statistics.mode(values)
+        except Exception:
+            mode_value = None
+        return {
+            'mean': round(statistics.mean(values), 4),
+            'median': round(statistics.median(values), 4),
+            'mode': mode_value,
+            'stdev': round(statistics.pstdev(values), 4) if len(values) > 1 else 0,
+        }
+
     def history_tail(self, count: int = 5) -> List[str]:
         return self.state.history[-count:]
 
@@ -139,7 +156,7 @@ class PdfExtractorApp:
             'errors': self.state.errors,
             'records': self.state.records,
             'flags': self.state.flags,
-            'history': self.state.history,
+            'history': self.history_tail(10),
         }
         return self.save_json('state.json', payload)
 
@@ -152,72 +169,10 @@ class PdfExtractorApp:
         print(self.format_kv('History entries', len(self.state.history)))
         self.log(f'Exported to {self.export_state()}')
 
-    def _create_sample_pdf(self, path: Path) -> None:
-        content = (
-            '%PDF-1.4\n'
-            '1 0 obj\n'
-            '<< /Type /Catalog /Pages 2 0 R >>\n'
-            'endobj\n'
-            '2 0 obj\n'
-            '<< /Type /Pages /Kids [3 0 R] /Count 1 >>\n'
-            'endobj\n'
-            '3 0 obj\n'
-            '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\n'
-            'endobj\n'
-            '4 0 obj\n'
-            '<< /Length 164 >>\n'
-            'stream\n'
-            'BT /F1 12 Tf 72 720 Td (PDF Extraction Sample) Tj ET\n'
-            'BT /F1 10 Tf 72 690 Td (This document demonstrates PDF text extraction.) Tj ET\n'
-            'BT /F1 10 Tf 72 660 Td (It contains multiple lines of sample content.) Tj ET\n'
-            'BT /F1 10 Tf 72 630 Td (Extracted text should match these original strings.) Tj ET\n'
-            'endstream\n'
-            'endobj\n'
-            '5 0 obj\n'
-            '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\n'
-            'endobj\n'
-            'xref\n'
-            '0 6\n'
-            '0000000000 65535 f \n'
-            '0000000009 00000 n \n'
-            '0000000058 00000 n \n'
-            '0000000115 00000 n \n'
-            '0000000266 00000 n \n'
-            '0000000484 00000 n \n'
-            'trailer\n'
-            '<< /Size 6 /Root 1 0 R >>\n'
-            'startxref\n'
-            '535\n'
-            '%%%%EOF'
-        )
-        path.write_text(content, encoding='latin-1')
-
-    def extract_text_from_pdf(self, path: Path) -> str:
-        raw = path.read_bytes()
-        text_parts = []
-        in_stream = False
-        stream_content = b''
-        for line in raw.split(b'\n'):
-            if b'stream' == line.strip():
-                in_stream = True
-                stream_content = b''
-                continue
-            if in_stream:
-                if b'endstream' == line.strip():
-                    in_stream = False
-                    stream_text = stream_content.decode('latin-1', errors='replace')
-                    for match in re.finditer(r'\(([^)]*)\)\s*Tj', stream_text):
-                        text_parts.append(match.group(1))
-                else:
-                    stream_content += line + b'\n'
-        return '\n'.join(text_parts)
-
     def demo_data(self) -> List[Dict[str, Any]]:
-        sample_path = self.output_dir / 'sample.pdf'
-        if not sample_path.exists():
-            self._create_sample_pdf(sample_path)
         return [
-            {'pdf_path': str(sample_path)},
+            {'pdf_path': '/docs/course_syllabus.pdf', 'metadata': {'title': 'Syllabus', 'pages': 5}, 'raw_text': 'This is the Python course syllabus. In week 1 we cover basics. In week 2 we cover OOP.'},
+            {'pdf_path': '/docs/empty.pdf', 'metadata': {'title': 'Empty Document', 'pages': 1}, 'raw_text': ''},
         ]
 
     def dataset(self) -> List[Dict[str, Any]]:
@@ -226,34 +181,28 @@ class PdfExtractorApp:
     def process_dataset(self, items: List[Dict[str, Any]]) -> Dict[str, Any]:
         extracted = []
         for doc in items:
-            path = Path(doc.get('pdf_path', ''))
-            if not path.exists():
-                extracted.append({'path': str(path), 'error': 'file not found', 'text': '', 'word_count': 0})
-                continue
-            text = self.extract_text_from_pdf(path)
+            path = doc.get('pdf_path', '')
+            text = doc.get('raw_text', '')
+            meta = doc.get('metadata', {})
             extracted.append({
-                'path': str(path),
-                'file_size': path.stat().st_size,
-                'text_length': len(text),
+                'path': path,
+                'title': meta.get('title', 'Unknown'),
+                'page_count': meta.get('pages', 0),
                 'word_count': len(text.split()),
-                'text_preview': text[:200],
+                'contains_python': 'python' in text.lower()
             })
-        for doc in extracted:
-            self.log(f"Extracted {doc['word_count']} words from {doc['path']}")
-        return {'pdfs_extracted': len(extracted), 'extracted_metadata': extracted}
+        return {
+            'pdfs_extracted': len(items),
+            'extracted_metadata': extracted
+        }
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('PDF Extraction')
+        self.section('Processing')
         items = self.dataset()
         result = self.process_dataset(items)
         self.record('result', result)
-        self.section('Extraction Results')
-        for doc in result['extracted_metadata']:
-            print(self.format_kv('File', doc['path']))
-            print(self.format_kv('Words', doc['word_count']))
-            print(self.format_kv('Preview', doc.get('text_preview', '')[:80]))
-            print()
+        print(json.dumps(result, indent=2))
         self.display_report()
     def pdf_extractor_utility_1(self, value: Any) -> Any:
         """Utility routine 1 tuned for pdf_extractor."""
@@ -339,18 +288,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-<<<<<<< Updated upstream
-=======
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> Stashed changes

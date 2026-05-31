@@ -6,11 +6,14 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 import json
+import math
+import os
 import random
+import statistics
 import time
 
 @dataclass
@@ -18,7 +21,7 @@ class NotesManagerAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=datetime.utcnow)
     runs: int = 0
     errors: int = 0
 
@@ -27,6 +30,8 @@ class NotesManagerApp:
         self.state = NotesManagerAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
+        self.seed = 42
+        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -78,7 +83,7 @@ class NotesManagerApp:
     def render_table(self, rows: List[Dict[str, Any]]) -> str:
         if not rows:
             return '(empty)'
-        keys = list(dict.fromkeys(k for row in rows for k in row))
+        keys = list(rows[0].keys())
         widths = {k: max(len(k), max(len(str(row.get(k, ''))) for row in rows)) for k in keys}
         header = ' | '.join(k.ljust(widths[k]) for k in keys)
         lines = [header, '-+-'.join('-' * widths[k] for k in keys)]
@@ -127,6 +132,20 @@ class NotesManagerApp:
             'avg': round(sum(values) / len(values), 4),
         }
 
+    def stats_from_numbers(self, values: List[float]) -> Dict[str, Any]:
+        if not values:
+            return {'mean': 0, 'median': 0, 'mode': None, 'stdev': 0}
+        try:
+            mode_value = statistics.mode(values)
+        except Exception:
+            mode_value = None
+        return {
+            'mean': round(statistics.mean(values), 4),
+            'median': round(statistics.median(values), 4),
+            'mode': mode_value,
+            'stdev': round(statistics.pstdev(values), 4) if len(values) > 1 else 0,
+        }
+
     def history_tail(self, count: int = 5) -> List[str]:
         return self.state.history[-count:]
 
@@ -137,9 +156,9 @@ class NotesManagerApp:
             'errors': self.state.errors,
             'records': self.state.records,
             'flags': self.state.flags,
-            'history': self.state.history,
+            'history': self.history_tail(10),
         }
-        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
+        return self.save_json('state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -179,29 +198,82 @@ class NotesManagerApp:
 
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Notes Manager')
-        notes = [
-            {'title': 'Meeting Notes', 'content': 'Discussed Q2 roadmap', 'created': '2026-05-01'},
-            {'title': 'Ideas', 'content': 'Build a Python project tracker', 'created': '2026-05-02'},
-            {'title': 'TODO', 'content': 'Review pull requests', 'created': '2026-05-03'},
-        ]
-        self.section('All Notes')
-        print(self.render_table(notes))
-        keyword = 'Python'
-        search_results = [n for n in notes if keyword.lower() in n['content'].lower()]
-        self.section(f'Search Results for "{keyword}"')
-        if search_results:
-            print(self.render_table(search_results))
-        else:
-            print('No matching notes found.')
-        result = {
-            'total_notes': len(notes),
-            'keyword': keyword,
-            'matches': len(search_results),
-            'search_results': search_results,
-        }
-        self.record('notes', result)
+        self.section('Processing')
+        items = self.dataset()
+        result = self.process_dataset(items)
+        self.record('result', result)
+        print(json.dumps(result, indent=2))
         self.display_report()
+    def notes_manager_utility_1(self, value: Any) -> Any:
+        """Utility routine 1 tuned for notes_manager."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def notes_manager_utility_2(self, value: Any) -> Any:
+        """Utility routine 2 tuned for notes_manager."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def notes_manager_utility_3(self, value: Any) -> Any:
+        """Utility routine 3 tuned for notes_manager."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def notes_manager_utility_4(self, value: Any) -> Any:
+        """Utility routine 4 tuned for notes_manager."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def notes_manager_utility_5(self, value: Any) -> Any:
+        """Utility routine 5 tuned for notes_manager."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def notes_manager_utility_6(self, value: Any) -> Any:
+        """Utility routine 6 tuned for notes_manager."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def notes_manager_utility_7(self, value: Any) -> Any:
+        """Utility routine 7 tuned for notes_manager."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')
@@ -216,18 +288,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-<<<<<<< Updated upstream
-=======
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> Stashed changes

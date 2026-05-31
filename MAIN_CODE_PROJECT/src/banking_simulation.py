@@ -6,11 +6,14 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 import json
+import math
+import os
 import random
+import statistics
 import time
 
 @dataclass
@@ -18,7 +21,7 @@ class BankingSimulationAppState:
     history: List[str] = field(default_factory=list)
     records: Dict[str, Any] = field(default_factory=dict)
     flags: Dict[str, bool] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=datetime.utcnow)
     runs: int = 0
     errors: int = 0
 
@@ -27,6 +30,8 @@ class BankingSimulationApp:
         self.state = BankingSimulationAppState()
         self.output_dir = Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
+        self.seed = 42
+        random.seed(self.seed)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
@@ -78,7 +83,7 @@ class BankingSimulationApp:
     def render_table(self, rows: List[Dict[str, Any]]) -> str:
         if not rows:
             return '(empty)'
-        keys = list(dict.fromkeys(k for row in rows for k in row))
+        keys = list(rows[0].keys())
         widths = {k: max(len(k), max(len(str(row.get(k, ''))) for row in rows)) for k in keys}
         header = ' | '.join(k.ljust(widths[k]) for k in keys)
         lines = [header, '-+-'.join('-' * widths[k] for k in keys)]
@@ -127,6 +132,20 @@ class BankingSimulationApp:
             'avg': round(sum(values) / len(values), 4),
         }
 
+    def stats_from_numbers(self, values: List[float]) -> Dict[str, Any]:
+        if not values:
+            return {'mean': 0, 'median': 0, 'mode': None, 'stdev': 0}
+        try:
+            mode_value = statistics.mode(values)
+        except Exception:
+            mode_value = None
+        return {
+            'mean': round(statistics.mean(values), 4),
+            'median': round(statistics.median(values), 4),
+            'mode': mode_value,
+            'stdev': round(statistics.pstdev(values), 4) if len(values) > 1 else 0,
+        }
+
     def history_tail(self, count: int = 5) -> List[str]:
         return self.state.history[-count:]
 
@@ -137,9 +156,9 @@ class BankingSimulationApp:
             'errors': self.state.errors,
             'records': self.state.records,
             'flags': self.state.flags,
-            'history': self.state.history,
+            'history': self.history_tail(10),
         }
-        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
+        return self.save_json('state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -182,54 +201,84 @@ class BankingSimulationApp:
             'statistics': self.summarize_list(amounts)
         }
 
-    def deposit(self, account: Dict[str, Any], amount: float) -> Dict[str, Any]:
-        if amount <= 0:
-            return {'status': 'failed', 'reason': 'Negative deposit not allowed'}
-        account['balance'] += amount
-        tx = {'type': 'deposit', 'amount': amount, 'balance': account['balance']}
-        account['transactions'].append(tx)
-        return {'status': 'success', 'transaction': tx}
-
-    def withdraw(self, account: Dict[str, Any], amount: float) -> Dict[str, Any]:
-        if amount <= 0:
-            return {'status': 'failed', 'reason': 'Negative withdrawal not allowed'}
-        if amount > account['balance']:
-            return {'status': 'failed', 'reason': 'Insufficient funds'}
-        account['balance'] -= amount
-        tx = {'type': 'withdrawal', 'amount': amount, 'balance': account['balance']}
-        account['transactions'].append(tx)
-        return {'status': 'success', 'transaction': tx}
-
-    def get_balance(self, account: Dict[str, Any]) -> float:
-        return account['balance']
-
     def run(self) -> None:
         self.state.runs += 1
-        self.section('Banking Simulation')
-        account = {'holder': 'John Doe', 'balance': 1000.0, 'transactions': []}
-        print(self.format_kv('Account holder', account['holder']))
-        print(self.format_kv('Opening balance', f"${account['balance']:.2f}"))
-        ops = [
-            ('deposit', 500),
-            ('withdraw', 200),
-            ('withdraw', 800),
-            ('deposit', 100),
-        ]
-        for action, amt in ops:
-            if action == 'deposit':
-                result = self.deposit(account, amt)
-            else:
-                result = self.withdraw(account, amt)
-            status = result['status']
-            if status == 'success':
-                tx = result['transaction']
-                print(f"  {tx['type'].title():<12} ${amt:<8.2f} -> Balance: ${tx['balance']:.2f}")
-            else:
-                print(f"  {action.title():<12} ${amt:<8.2f} -> FAILED: {result['reason']}")
-        print()
-        print(self.format_kv('Final balance', f"${account['balance']:.2f}"))
-        self.record('account', account)
+        self.section('Processing')
+        items = self.dataset()
+        result = self.process_dataset(items)
+        self.record('result', result)
+        print(json.dumps(result, indent=2))
         self.display_report()
+    def banking_simulation_utility_1(self, value: Any) -> Any:
+        """Utility routine 1 tuned for banking_simulation."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def banking_simulation_utility_2(self, value: Any) -> Any:
+        """Utility routine 2 tuned for banking_simulation."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def banking_simulation_utility_3(self, value: Any) -> Any:
+        """Utility routine 3 tuned for banking_simulation."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def banking_simulation_utility_4(self, value: Any) -> Any:
+        """Utility routine 4 tuned for banking_simulation."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def banking_simulation_utility_5(self, value: Any) -> Any:
+        """Utility routine 5 tuned for banking_simulation."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def banking_simulation_utility_6(self, value: Any) -> Any:
+        """Utility routine 6 tuned for banking_simulation."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
+    def banking_simulation_utility_7(self, value: Any) -> Any:
+        """Utility routine 7 tuned for banking_simulation."""
+        if isinstance(value, str):
+            return self.normalize_text(value)
+        if isinstance(value, (int, float)):
+            return self.clamp(float(value), -1_000_000, 1_000_000)
+        if isinstance(value, list):
+            return [self.normalize_text(str(x)) for x in value]
+        return value
+
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')
@@ -244,18 +293,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-<<<<<<< Updated upstream
-=======
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> Stashed changes
