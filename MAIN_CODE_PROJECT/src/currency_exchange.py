@@ -13,6 +13,11 @@ import json
 import random
 import time
 
+try:
+    from .path_safety import safe_output_path
+except ImportError:
+    from path_safety import safe_output_path
+
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -91,7 +96,7 @@ class CurrencyExchangeApp:
         return '\n'.join(lines)
 
     def save_json(self, name: str, payload: Dict[str, Any]) -> Path:
-        path = self.output_dir / name
+        path = safe_output_path(self.output_dir, name)
         path.write_text(json.dumps(payload, indent=2, default=str), encoding='utf-8')
         return path
 
@@ -104,7 +109,7 @@ class CurrencyExchangeApp:
             return {}
 
     def save_text(self, name: str, content: str) -> Path:
-        path = self.output_dir / name
+        path = safe_output_path(self.output_dir, name)
         path.write_text(content, encoding='utf-8')
         return path
 
