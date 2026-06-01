@@ -13,6 +13,8 @@ import json
 import random
 import time
 
+import threading
+
 @dataclass
 class QrGeneratorAppState:
     history: List[str] = field(default_factory=list)
@@ -21,11 +23,12 @@ class QrGeneratorAppState:
     created_at: datetime = field(default_factory=datetime.utcnow)
     runs: int = 0
     errors: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
 class QrGeneratorApp:
-    def __init__(self) -> None:
-        self.state = QrGeneratorAppState()
-        self.output_dir = Path('outputs')
+    def __init__(self, state: QrGeneratorAppState | None = None, output_dir: Path | None = None) -> None:
+        self.state = state if state is not None else QrGeneratorAppState()
+        self.output_dir = output_dir if output_dir is not None else Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
         self.seed = 42
         random.seed(self.seed)
@@ -33,7 +36,8 @@ class QrGeneratorApp:
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
         entry = f'[{stamp}] {message}'
-        self.state.history.append(entry)
+        with self.state._lock:
+            self.state.history.append(entry)
         print(entry)
 
     def section(self, title: str) -> None:
@@ -112,12 +116,14 @@ class QrGeneratorApp:
         return path.read_text(encoding='utf-8')
 
     def record(self, key: str, value: Any) -> None:
-        self.state.records[key] = value
+        with self.state._lock:
+            self.state.records[key] = value
 
     def toggle(self, key: str, default: bool = False) -> bool:
-        current = self.state.flags.get(key, default)
-        self.state.flags[key] = not current
-        return self.state.flags[key]
+        with self.state._lock:
+            current = self.state.flags.get(key, default)
+            self.state.flags[key] = not current
+            return self.state.flags[key]
 
     def summarize_list(self, values: List[float]) -> Dict[str, Any]:
         if not values:
@@ -340,7 +346,8 @@ class QrGeneratorApp:
         return {'qrs_generated': len(items), 'qr_codes': qrs}
 
     def run(self) -> None:
-        self.state.runs += 1
+        with self.state._lock:
+            self.state.runs += 1
         self.section('QR Code Generation')
         items = self.dataset()
         result = self.process_dataset(items)

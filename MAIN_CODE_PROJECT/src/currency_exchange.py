@@ -17,6 +17,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+import threading
+
 @dataclass
 class CurrencyExchangeAppState:
     history: List[str] = field(default_factory=list)
@@ -25,17 +27,19 @@ class CurrencyExchangeAppState:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
 class CurrencyExchangeApp:
-    def __init__(self) -> None:
-        self.state = CurrencyExchangeAppState()
-        self.output_dir = Path('outputs')
+    def __init__(self, state: CurrencyExchangeAppState | None = None, output_dir: Path | None = None) -> None:
+        self.state = state if state is not None else CurrencyExchangeAppState()
+        self.output_dir = output_dir if output_dir is not None else Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
         entry = f'[{stamp}] {message}'
-        self.state.history.append(entry)
+        with self.state._lock:
+            self.state.history.append(entry)
         print(entry)
 
     def section(self, title: str) -> None:
@@ -114,12 +118,14 @@ class CurrencyExchangeApp:
         return path.read_text(encoding='utf-8')
 
     def record(self, key: str, value: Any) -> None:
-        self.state.records[key] = value
+        with self.state._lock:
+            self.state.records[key] = value
 
     def toggle(self, key: str, default: bool = False) -> bool:
-        current = self.state.flags.get(key, default)
-        self.state.flags[key] = not current
-        return self.state.flags[key]
+        with self.state._lock:
+            current = self.state.flags.get(key, default)
+            self.state.flags[key] = not current
+            return self.state.flags[key]
 
     def summarize_list(self, values: List[float]) -> Dict[str, Any]:
         if not values:
@@ -186,7 +192,8 @@ class CurrencyExchangeApp:
         }
 
     def run(self) -> None:
-        self.state.runs += 1
+        with self.state._lock:
+            self.state.runs += 1
         self.section('Currency Exchange')
         rates = {'USD': 1.0, 'EUR': 0.85, 'GBP': 0.73, 'JPY': 110.0, 'INR': 83.0}
         conversions_100usd = []

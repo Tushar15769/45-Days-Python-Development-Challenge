@@ -1,4 +1,4 @@
-﻿"""Develop an Interactive Banking Transaction Simulation with Balance Management System
+"""Develop an Interactive Banking Transaction Simulation with Balance Management System
 
 Generated for the 45-day Python development challenge.
 """
@@ -12,6 +12,9 @@ from typing import Any, Dict, List
 import json
 import random
 import time
+from .config import AppConfig
+
+import threading
 
 @dataclass
 class BankingSimulationAppState:
@@ -21,21 +24,34 @@ class BankingSimulationAppState:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
 class BankingSimulationApp:
-    def __init__(self) -> None:
-        self.state = BankingSimulationAppState()
-        self.output_dir = Path('outputs')
+    def __init__(self, state: BankingSimulationAppState | None = None, output_dir: Path | None = None) -> None:
+        self.state = state if state is not None else BankingSimulationAppState()
+        self.output_dir = output_dir if output_dir is not None else Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
+        self.output = OutputHandler(self.output_dir)
+
+    def _parse_banking_ops(self) -> list[tuple[str, float]]:
+        result: list[tuple[str, float]] = []
+        for part in self.cfg.banking_transaction_ops:
+            action, _, amt = part.partition(':')
+            try:
+                result.append((action.strip(), float(amt)))
+            except ValueError:
+                pass
+        return result
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
         entry = f'[{stamp}] {message}'
-        self.state.history.append(entry)
+        with self.state._lock:
+            self.state.history.append(entry)
         print(entry)
 
     def section(self, title: str) -> None:
-        print()
+        self.output.write("\n")
         print('=' * 70)
         print(title)
         print('=' * 70)
@@ -110,12 +126,14 @@ class BankingSimulationApp:
         return path.read_text(encoding='utf-8')
 
     def record(self, key: str, value: Any) -> None:
-        self.state.records[key] = value
+        with self.state._lock:
+            self.state.records[key] = value
 
     def toggle(self, key: str, default: bool = False) -> bool:
-        current = self.state.flags.get(key, default)
-        self.state.flags[key] = not current
-        return self.state.flags[key]
+        with self.state._lock:
+            current = self.state.flags.get(key, default)
+            self.state.flags[key] = not current
+            return self.state.flags[key]
 
     def summarize_list(self, values: List[float]) -> Dict[str, Any]:
         if not values:
@@ -128,27 +146,19 @@ class BankingSimulationApp:
         }
 
     def history_tail(self, count: int = 5) -> List[str]:
-        return self.state.history[-count:]
+        return self.state.transient.history[-count:]
 
     def export_state(self) -> Path:
-        payload = {
-            'created_at': self.state.created_at,
-            'runs': self.state.runs,
-            'errors': self.state.errors,
-            'records': self.state.records,
-            'flags': self.state.flags,
-            'history': self.state.history,
-        }
-        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', self.state.export())
 
     def display_report(self) -> None:
-        self.section('Summary')
-        print(self.format_kv('Runs', self.state.runs))
-        print(self.format_kv('Errors', self.state.errors))
-        print(self.format_kv('Records', len(self.state.records)))
-        print(self.format_kv('Flags', len(self.state.flags)))
-        print(self.format_kv('History entries', len(self.state.history)))
-        self.log(f'Exported to {self.export_state()}')
+        self.output.section('Summary')
+        self.output.kv('Runs', self.state.runs)
+        self.output.kv('Errors', self.state.errors)
+        self.output.kv('Records', len(self.state.records))
+        self.output.kv('Flags', len(self.state.flags))
+        self.output.kv('History entries', len(self.state.history))
+        self.output.log(f'Exported to {self.export_state()}')
 
     def demo_data(self) -> List[Dict[str, Any]]:
         return [
@@ -156,9 +166,6 @@ class BankingSimulationApp:
             {'type': 'withdrawal', 'amount': 200.0, 'timestamp': '2026-05-29T10:15:00'},
             {'type': 'deposit', 'amount': 350.0, 'timestamp': '2026-05-29T10:30:00'},
         ]
-
-    def dataset(self) -> List[Dict[str, Any]]:
-        return self.demo_data()
 
     def process_dataset(self, items: List[Dict[str, Any]]) -> Dict[str, Any]:
         balance = 0.0
@@ -204,11 +211,12 @@ class BankingSimulationApp:
         return account['balance']
 
     def run(self) -> None:
-        self.state.runs += 1
+        with self.state._lock:
+            self.state.runs += 1
         self.section('Banking Simulation')
         account = {'holder': 'John Doe', 'balance': 1000.0, 'transactions': []}
-        print(self.format_kv('Account holder', account['holder']))
-        print(self.format_kv('Opening balance', f"${account['balance']:.2f}"))
+        self.output.kv('Account holder', account['holder'])
+        self.output.kv('Opening balance', f"${account['balance']:.2f}")
         ops = [
             ('deposit', 500),
             ('withdraw', 200),
@@ -223,17 +231,13 @@ class BankingSimulationApp:
             status = result['status']
             if status == 'success':
                 tx = result['transaction']
-                print(f"  {tx['type'].title():<12} ${amt:<8.2f} -> Balance: ${tx['balance']:.2f}")
+                self.output.write(f"  {tx['type'].title():<12} ${amt:<8.2f} -> Balance: ${tx['balance']:.2f}\n")
             else:
-                print(f"  {action.title():<12} ${amt:<8.2f} -> FAILED: {result['reason']}")
-        print()
-        print(self.format_kv('Final balance', f"${account['balance']:.2f}"))
+                self.output.write(f"  {action.title():<12} ${amt:<8.2f} -> FAILED: {result['reason']}\n")
+        self.output.write("\n")
+        self.output.kv('Final balance', f"${account['balance']:.2f}")
         self.record('account', account)
         self.display_report()
-    def finalize(self) -> None:
-        self.export_state()
-        self.log('Finalized successfully')
-
 def main() -> None:
     app = BankingSimulationApp()
     try:

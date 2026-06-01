@@ -13,6 +13,8 @@ import json
 import random
 import time
 
+import threading
+
 @dataclass
 class RandomQuoteApiAppState:
     history: List[str] = field(default_factory=list)
@@ -21,17 +23,19 @@ class RandomQuoteApiAppState:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
 class RandomQuoteApiApp:
-    def __init__(self) -> None:
-        self.state = RandomQuoteApiAppState()
-        self.output_dir = Path('outputs')
+    def __init__(self, state: RandomQuoteApiAppState | None = None, output_dir: Path | None = None) -> None:
+        self.state = state if state is not None else RandomQuoteApiAppState()
+        self.output_dir = output_dir if output_dir is not None else Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
         entry = f'[{stamp}] {message}'
-        self.state.history.append(entry)
+        with self.state._lock:
+            self.state.history.append(entry)
         print(entry)
 
     def section(self, title: str) -> None:
@@ -110,12 +114,14 @@ class RandomQuoteApiApp:
         return path.read_text(encoding='utf-8')
 
     def record(self, key: str, value: Any) -> None:
-        self.state.records[key] = value
+        with self.state._lock:
+            self.state.records[key] = value
 
     def toggle(self, key: str, default: bool = False) -> bool:
-        current = self.state.flags.get(key, default)
-        self.state.flags[key] = not current
-        return self.state.flags[key]
+        with self.state._lock:
+            current = self.state.flags.get(key, default)
+            self.state.flags[key] = not current
+            return self.state.flags[key]
 
     def summarize_list(self, values: List[float]) -> Dict[str, Any]:
         if not values:
@@ -169,7 +175,8 @@ class RandomQuoteApiApp:
         }
 
     def run(self) -> None:
-        self.state.runs += 1
+        with self.state._lock:
+            self.state.runs += 1
         self.section('Fetching Random Quote')
         start = time.perf_counter()
         try:
@@ -192,7 +199,8 @@ class RandomQuoteApiApp:
             self.record('response_time', elapsed)
             self.log(f'Fetched random post {post["id"]} in {elapsed}s')
         except Exception as exc:
-            self.state.errors += 1
+            with self.state._lock:
+                self.state.errors += 1
             self.log(f'Quote fetch failed: {exc}')
         self.display_report()
     def finalize(self) -> None:

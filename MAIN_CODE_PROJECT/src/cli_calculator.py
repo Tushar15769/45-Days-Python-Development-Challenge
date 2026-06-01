@@ -1,4 +1,4 @@
-﻿"""Build an Interactive Command-Line Calculator with Advanced Arithmetic Operations and Input Validation
+"""Build an Interactive Command-Line Calculator with Advanced Arithmetic Operations and Input Validation
 
 Generated for the 45-day Python development challenge.
 """
@@ -13,6 +13,9 @@ import json
 import math
 import random
 import time
+from .config import AppConfig
+
+import threading
 
 @dataclass
 class CliCalculatorAppState:
@@ -22,17 +25,20 @@ class CliCalculatorAppState:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
 class CliCalculatorApp:
-    def __init__(self) -> None:
-        self.state = CliCalculatorAppState()
-        self.output_dir = Path('outputs')
+    def __init__(self, state: CliCalculatorAppState | None = None, output_dir: Path | None = None) -> None:
+        self.state = state if state is not None else CliCalculatorAppState()
+        self.output_dir = output_dir if output_dir is not None else Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
+        self.output = OutputHandler(self.output_dir)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
         entry = f'[{stamp}] {message}'
-        self.state.history.append(entry)
+        with self.state._lock:
+            self.state.history.append(entry)
         print(entry)
 
     def section(self, title: str) -> None:
@@ -111,12 +117,14 @@ class CliCalculatorApp:
         return path.read_text(encoding='utf-8')
 
     def record(self, key: str, value: Any) -> None:
-        self.state.records[key] = value
+        with self.state._lock:
+            self.state.records[key] = value
 
     def toggle(self, key: str, default: bool = False) -> bool:
-        current = self.state.flags.get(key, default)
-        self.state.flags[key] = not current
-        return self.state.flags[key]
+        with self.state._lock:
+            current = self.state.flags.get(key, default)
+            self.state.flags[key] = not current
+            return self.state.flags[key]
 
     def summarize_list(self, values: List[float]) -> Dict[str, Any]:
         if not values:
@@ -129,27 +137,19 @@ class CliCalculatorApp:
         }
 
     def history_tail(self, count: int = 5) -> List[str]:
-        return self.state.history[-count:]
+        return self.state.transient.history[-count:]
 
     def export_state(self) -> Path:
-        payload = {
-            'created_at': self.state.created_at,
-            'runs': self.state.runs,
-            'errors': self.state.errors,
-            'records': self.state.records,
-            'flags': self.state.flags,
-            'history': self.state.history,
-        }
-        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
+        return self.save_json(f'{self.__class__.__name__}_state.json', self.state.export())
 
     def display_report(self) -> None:
-        self.section('Summary')
-        print(self.format_kv('Runs', self.state.runs))
-        print(self.format_kv('Errors', self.state.errors))
-        print(self.format_kv('Records', len(self.state.records)))
-        print(self.format_kv('Flags', len(self.state.flags)))
-        print(self.format_kv('History entries', len(self.state.history)))
-        self.log(f'Exported to {self.export_state()}')
+        self.output.section('Summary')
+        self.output.kv('Runs', self.state.runs)
+        self.output.kv('Errors', self.state.errors)
+        self.output.kv('Records', len(self.state.records))
+        self.output.kv('Flags', len(self.state.flags))
+        self.output.kv('History entries', len(self.state.history))
+        self.output.log(f'Exported to {self.export_state()}')
 
     def demo_data(self) -> List[Dict[str, Any]]:
         return [
@@ -178,22 +178,24 @@ class CliCalculatorApp:
         return operations[op]()
 
     def run(self) -> None:
-        self.state.runs += 1
+        with self.state._lock:
+            self.state.runs += 1
         samples = ['5 + 2', '8 / 0', '4 ** 3', '10 ? 2']
-        self.section('Calculator Runs')
+        self.output.section('Calculator Runs')
         for item in samples:
             try:
                 a, op, b = self.parse_expression(item)
                 result = self.compute(a, op, b)
-                print(self.format_kv(item, result))
+                self.output.kv(item, result)
             except Exception as exc:
-                self.state.errors += 1
-                print(self.format_kv(item, f'error: {exc}'))
-        self.display_report()
     def finalize(self) -> None:
         self.export_state()
-        self.log('Finalized successfully')
+        self.output.log('Finalized successfully')
 
+                with self.state._lock:
+                    self.state.errors += 1
+                print(self.format_kv(item, f'error: {exc}'))
+        self.display_report()
 def main() -> None:
     app = CliCalculatorApp()
     try:
