@@ -8,11 +8,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 import json
 import random
-import statistics
 import time
+
+import threading
 
 @dataclass
 class DatetimeUtilityAppState:
@@ -22,17 +23,19 @@ class DatetimeUtilityAppState:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
 class DatetimeUtilityApp:
-    def __init__(self) -> None:
-        self.state = DatetimeUtilityAppState()
-        self.output_dir = Path('outputs')
+    def __init__(self, state: DatetimeUtilityAppState | None = None, output_dir: Path | None = None) -> None:
+        self.state = state if state is not None else DatetimeUtilityAppState()
+        self.output_dir = output_dir if output_dir is not None else Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
         entry = f'[{stamp}] {message}'
-        self.state.history.append(entry)
+        with self.state._lock:
+            self.state.history.append(entry)
         print(entry)
 
     def section(self, title: str) -> None:
@@ -79,7 +82,7 @@ class DatetimeUtilityApp:
     def render_table(self, rows: List[Dict[str, Any]]) -> str:
         if not rows:
             return '(empty)'
-        keys = list(rows[0].keys())
+        keys = list(dict.fromkeys(k for row in rows for k in row))
         widths = {k: max(len(k), max(len(str(row.get(k, ''))) for row in rows)) for k in keys}
         header = ' | '.join(k.ljust(widths[k]) for k in keys)
         lines = [header, '-+-'.join('-' * widths[k] for k in keys)]
@@ -111,12 +114,14 @@ class DatetimeUtilityApp:
         return path.read_text(encoding='utf-8')
 
     def record(self, key: str, value: Any) -> None:
-        self.state.records[key] = value
+        with self.state._lock:
+            self.state.records[key] = value
 
     def toggle(self, key: str, default: bool = False) -> bool:
-        current = self.state.flags.get(key, default)
-        self.state.flags[key] = not current
-        return self.state.flags[key]
+        with self.state._lock:
+            current = self.state.flags.get(key, default)
+            self.state.flags[key] = not current
+            return self.state.flags[key]
 
     def summarize_list(self, values: List[float]) -> Dict[str, Any]:
         if not values:
@@ -126,20 +131,6 @@ class DatetimeUtilityApp:
             'min': min(values),
             'max': max(values),
             'avg': round(sum(values) / len(values), 4),
-        }
-
-    def stats_from_numbers(self, values: List[float]) -> Dict[str, Any]:
-        if not values:
-            return {'mean': 0, 'median': 0, 'mode': None, 'stdev': 0}
-        try:
-            mode_value = statistics.mode(values)
-        except Exception:
-            mode_value = None
-        return {
-            'mean': round(statistics.mean(values), 4),
-            'median': round(statistics.median(values), 4),
-            'mode': mode_value,
-            'stdev': round(statistics.pstdev(values), 4) if len(values) > 1 else 0,
         }
 
     def history_tail(self, count: int = 5) -> List[str]:
@@ -152,7 +143,7 @@ class DatetimeUtilityApp:
             'errors': self.state.errors,
             'records': self.state.records,
             'flags': self.state.flags,
-            'history': self.history_tail(10),
+            'history': self.state.history,
         }
         return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
@@ -195,7 +186,8 @@ class DatetimeUtilityApp:
         }
 
     def run(self) -> None:
-        self.state.runs += 1
+        with self.state._lock:
+            self.state.runs += 1
         self.section('Date/Time Formatting')
         now = datetime.now()
         iso_fmt = now.isoformat()
