@@ -5,6 +5,9 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
     - uses: actions/checkout@v4
@@ -12,7 +15,7 @@ jobs:
     - name: Set up Conda
       uses: conda-incubator/setup-miniconda@v3
       with:
-        python-version: "3.10"
+        python-version: ${{ matrix.python-version }}
         environment-file: environment.yml
         activate-environment: base
         auto-activate-base: true
@@ -22,11 +25,11 @@ jobs:
       run: |
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        # fail the build on style violations, max line length 127 chars
+        flake8 . --count --max-complexity=10 --max-line-length=127 --statistics
 
     - name: Test with pytest
       shell: bash -el {0}
       run: |
-        pytest
+        pytest -W error::DeprecationWarning
 

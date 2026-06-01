@@ -1,4 +1,4 @@
-﻿"""Develop a Dynamic Image Downloading and Processing Workflow
+"""Develop a Dynamic Image Downloading and Processing Workflow
 
 Generated for the 45-day Python development challenge.
 """
@@ -6,15 +6,14 @@ Generated for the 45-day Python development challenge.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 import json
-import math
-import os
 import random
-import statistics
 import time
+
+import threading
 
 @dataclass
 class ImageProcessingAppState:
@@ -24,17 +23,19 @@ class ImageProcessingAppState:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
 class ImageProcessingApp:
-    def __init__(self) -> None:
-        self.state = ImageProcessingAppState()
-        self.output_dir = Path('outputs')
+    def __init__(self, state: ImageProcessingAppState | None = None, output_dir: Path | None = None) -> None:
+        self.state = state if state is not None else ImageProcessingAppState()
+        self.output_dir = output_dir if output_dir is not None else Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
         entry = f'[{stamp}] {message}'
-        self.state.history.append(entry)
+        with self.state._lock:
+            self.state.history.append(entry)
         print(entry)
 
     def section(self, title: str) -> None:
@@ -43,82 +44,23 @@ class ImageProcessingApp:
         print(title)
         print('=' * 70)
 
-    def non_empty(self, value: Any) -> bool:
-        return bool(str(value).strip())
-
-    def safe_int(self, value: Any, default: int = 0) -> int:
-        try:
-            return int(str(value).strip())
-        except Exception:
-            return default
-
-    def safe_float(self, value: Any, default: float = 0.0) -> float:
-        try:
-            return float(str(value).strip())
-        except Exception:
-            return default
-
-    def clamp(self, value: float, low: float, high: float) -> float:
-        return max(low, min(high, value))
-
-    def normalize_text(self, value: str) -> str:
-        return ' '.join(str(value).strip().split())
-
-    def normalize_key(self, value: str) -> str:
-        return self.normalize_text(value).lower().replace(' ', '_')
-
-    def split_words(self, value: str) -> List[str]:
-        cleaned = ''.join(ch.lower() if ch.isalnum() else ' ' for ch in value)
-        return [part for part in cleaned.split() if part]
-
-    def chunk(self, items: List[Any], size: int) -> List[List[Any]]:
-        size = max(1, size)
-        return [items[i:i + size] for i in range(0, len(items), size)]
-
     def format_kv(self, key: str, value: Any) -> str:
         return f'{key:<20} : {value}'
-
-    def render_table(self, rows: List[Dict[str, Any]]) -> str:
-        if not rows:
-            return '(empty)'
-        keys = list(rows[0].keys())
-        widths = {k: max(len(k), max(len(str(row.get(k, ''))) for row in rows)) for k in keys}
-        header = ' | '.join(k.ljust(widths[k]) for k in keys)
-        lines = [header, '-+-'.join('-' * widths[k] for k in keys)]
-        for row in rows:
-            lines.append(' | '.join(str(row.get(k, '')).ljust(widths[k]) for k in keys))
-        return '\n'.join(lines)
 
     def save_json(self, name: str, payload: Dict[str, Any]) -> Path:
         path = self.output_dir / name
         path.write_text(json.dumps(payload, indent=2, default=str), encoding='utf-8')
         return path
 
-    def load_json(self, path: Path) -> Dict[str, Any]:
-        if not path.exists():
-            return {}
-        try:
-            return json.loads(path.read_text(encoding='utf-8'))
-        except Exception:
-            return {}
-
-    def save_text(self, name: str, content: str) -> Path:
-        path = self.output_dir / name
-        path.write_text(content, encoding='utf-8')
-        return path
-
-    def load_text(self, path: Path) -> str:
-        if not path.exists():
-            return ''
-        return path.read_text(encoding='utf-8')
-
     def record(self, key: str, value: Any) -> None:
-        self.state.records[key] = value
+        with self.state._lock:
+            self.state.records[key] = value
 
     def toggle(self, key: str, default: bool = False) -> bool:
-        current = self.state.flags.get(key, default)
-        self.state.flags[key] = not current
-        return self.state.flags[key]
+        with self.state._lock:
+            current = self.state.flags.get(key, default)
+            self.state.flags[key] = not current
+            return self.state.flags[key]
 
     def summarize_list(self, values: List[float]) -> Dict[str, Any]:
         if not values:
@@ -128,20 +70,6 @@ class ImageProcessingApp:
             'min': min(values),
             'max': max(values),
             'avg': round(sum(values) / len(values), 4),
-        }
-
-    def stats_from_numbers(self, values: List[float]) -> Dict[str, Any]:
-        if not values:
-            return {'mean': 0, 'median': 0, 'mode': None, 'stdev': 0}
-        try:
-            mode_value = statistics.mode(values)
-        except Exception:
-            mode_value = None
-        return {
-            'mean': round(statistics.mean(values), 4),
-            'median': round(statistics.median(values), 4),
-            'mode': mode_value,
-            'stdev': round(statistics.pstdev(values), 4) if len(values) > 1 else 0,
         }
 
     def history_tail(self, count: int = 5) -> List[str]:
@@ -156,7 +84,7 @@ class ImageProcessingApp:
             'flags': self.state.flags,
             'history': self.state.history,
         }
-        return self.save_json(f'{self.__class__.__name__}_state.json', payload)
+        return self.save_json('state.json', payload)
 
     def display_report(self) -> None:
         self.section('Summary')
@@ -167,60 +95,140 @@ class ImageProcessingApp:
         print(self.format_kv('History entries', len(self.state.history)))
         self.log(f'Exported to {self.export_state()}')
 
+    def _create_sample_ppm(self, path: Path, width: int = 64, height: int = 64) -> None:
+        header = f'P6\n{width} {height}\n255\n'
+        pixels = bytearray()
+        for y in range(height):
+            for x in range(width):
+                r = int((x / width) * 255)
+                g = int((y / height) * 255)
+                b = int(((x + y) / (width + height)) * 255)
+                pixels.extend([r, g, b])
+        path.write_bytes(header.encode('ascii') + bytes(pixels))
+
+    def load_ppm(self, path: Path) -> Dict[str, Any]:
+        data = path.read_bytes()
+        parts = data.split(b'\n', 3)
+        if len(parts) < 4 or parts[0] != b'P6':
+            raise ValueError('Unsupported format')
+        width, height = map(int, parts[1].split())
+        max_val = int(parts[2])
+        pixel_data = parts[3]
+        pixels = []
+        for i in range(0, len(pixel_data), 3):
+            r = pixel_data[i] / max_val
+            g = pixel_data[i + 1] / max_val
+            b = pixel_data[i + 2] / max_val
+            pixels.append((r, g, b))
+        return {'width': width, 'height': height, 'max_val': max_val, 'pixels': pixels}
+
+    def save_ppm(self, path: Path, image: Dict[str, Any]) -> None:
+        w, h = image['width'], image['height']
+        header = f'P6\n{w} {h}\n255\n'
+        pixels = bytearray()
+        for r, g, b in image['pixels']:
+            pixels.extend([int(r * 255), int(g * 255), int(b * 255)])
+        path.write_bytes(header.encode('ascii') + bytes(pixels))
+
+    def convert_grayscale(self, image: Dict[str, Any]) -> Dict[str, Any]:
+        gray = []
+        for r, g, b in image['pixels']:
+            gv = 0.299 * r + 0.587 * g + 0.114 * b
+            gray.append((gv, gv, gv))
+        return {'width': image['width'], 'height': image['height'], 'max_val': 1, 'pixels': gray}
+
+    def invert_image(self, image: Dict[str, Any]) -> Dict[str, Any]:
+        inv = []
+        for r, g, b in image['pixels']:
+            inv.append((1.0 - r, 1.0 - g, 1.0 - b))
+        max_val = image.get('max_val', 255)
+        return {'width': image['width'], 'height': image['height'], 'max_val': max_val, 'pixels': inv}
+
+    def resize_image(self, image: Dict[str, Any], new_w: int, new_h: int) -> Dict[str, Any]:
+        old_w, old_h = image['width'], image['height']
+        pixels = image['pixels']
+        new_pixels = []
+        for y in range(new_h):
+            for x in range(new_w):
+                sx = int(x * old_w / new_w)
+                sy = int(y * old_h / new_h)
+                new_pixels.append(pixels[sy * old_w + sx])
+        return {'width': new_w, 'height': new_h, 'max_val': image.get('max_val', 255), 'pixels': new_pixels}
+
+    def edge_detect(self, image: Dict[str, Any]) -> Dict[str, Any]:
+        w, h = image['width'], image['height']
+        gray = self.convert_grayscale(image)
+        pixels = [p[0] for p in gray['pixels']]
+        sobel_x = [-1, 0, 1, -2, 0, 2, -1, 0, 1]
+        sobel_y = [-1, -2, -1, 0, 0, 0, 1, 2, 1]
+        edge_pixels = []
+        for y in range(h):
+            for x in range(w):
+                gx, gy = 0.0, 0.0
+                for ky in range(-1, 2):
+                    for kx in range(-1, 2):
+                        px, py = x + kx, y + ky
+                        if 0 <= px < w and 0 <= py < h:
+                            val = pixels[py * w + px]
+                            idx = (ky + 1) * 3 + (kx + 1)
+                            gx += val * sobel_x[idx]
+                            gy += val * sobel_y[idx]
+                mag = min(1.0, (gx * gx + gy * gy) ** 0.5)
+                edge_pixels.append((mag, mag, mag))
+        return {'width': w, 'height': h, 'max_val': 1, 'pixels': edge_pixels}
+
     def demo_data(self) -> List[Dict[str, Any]]:
-        return [
-            {'name': 'banner.png', 'width': 1920, 'height': 1080, 'format': 'png'},
-            {'name': 'thumbnail.jpg', 'width': 300, 'height': 200, 'format': 'jpg'},
-        ]
+        sample_path = self.output_dir / 'sample.ppm'
+        if not sample_path.exists():
+            self._create_sample_ppm(sample_path)
+        return [{'path': str(sample_path)}]
 
     def dataset(self) -> List[Dict[str, Any]]:
         return self.demo_data()
 
     def process_dataset(self, items: List[Dict[str, Any]]) -> Dict[str, Any]:
-        processed = []
-        for img in items:
-            w = img.get('width', 0)
-            h = img.get('height', 0)
-            fmt = img.get('format', 'png')
-            processed.append({
-                'name': img.get('name'),
-                'aspect_ratio': round(w / h, 2) if h > 0 else 0,
-                'megapixels': round((w * h) / 1_000_000, 2),
-                'thumbnail_dimensions': f'{w // 4}x{h // 4}'
+        results = []
+        for item in items:
+            img_path = Path(item['path'])
+            img = self.load_ppm(img_path)
+            gray = self.convert_grayscale(img)
+            gray_path = self.output_dir / 'grayscale.ppm'
+            self.save_ppm(gray_path, gray)
+            inv = self.invert_image(img)
+            inv_path = self.output_dir / 'inverted.ppm'
+            self.save_ppm(inv_path, inv)
+            thumb = self.resize_image(img, 32, 32)
+            thumb_path = self.output_dir / 'thumbnail.ppm'
+            self.save_ppm(thumb_path, thumb)
+            edges = self.edge_detect(img)
+            edge_path = self.output_dir / 'edges.ppm'
+            self.save_ppm(edge_path, edges)
+            results.append({
+                'source': str(img_path),
+                'operations': ['grayscale', 'invert', 'thumbnail', 'edge_detect'],
+                'original_size': f"{img['width']}x{img['height']}",
+                'outputs': [str(p) for p in [gray_path, inv_path, thumb_path, edge_path]],
             })
-        return {
-            'total_images_processed': len(items),
-            'image_metrics': processed
-        }
+            self.log(f"Processed {img['width']}x{img['height']} image -> 4 outputs")
+        return {'total_images_processed': len(items), 'results': results}
 
     def run(self) -> None:
-        self.state.runs += 1
+        with self.state._lock:
+            self.state.runs += 1
         self.section('Image Processing')
-        image = [[random.randint(0, 255) for _ in range(5)] for _ in range(5)]
-        print('Before:')
-        for row in image:
-            print(' '.join(f'{p:3d}' for p in row))
-        bright = [[min(255, p + 10) for p in row] for row in image]
-        inverted = [[255 - p for p in row] for row in image]
-        flat = [p for row in image for p in row]
-        stats = self.summarize_list(flat)
-        print()
-        self.section('After Brightness (+10)')
-        for row in bright:
-            print(' '.join(f'{p:3d}' for p in row))
-        print()
-        self.section('After Invert')
-        for row in inverted:
-            print(' '.join(f'{p:3d}' for p in row))
-        print()
-        print(self.format_kv('Min pixel', stats['min']))
-        print(self.format_kv('Max pixel', stats['max']))
-        print(self.format_kv('Mean pixel', stats['avg']))
-        self.record('original', image)
-        self.record('brightness_adjusted', bright)
-        self.record('inverted', inverted)
-        self.record('statistics', stats)
+        items = self.dataset()
+        result = self.process_dataset(items)
+        self.record('result', result)
+        for r in result['results']:
+            print(self.format_kv('Source', r['source']))
+            print(self.format_kv('Size', r['original_size']))
+            print(self.format_kv('Operations', ', '.join(r['operations'])))
+            for out in r['outputs']:
+                sz = Path(out).stat().st_size
+                print(self.format_kv('Output', f'{out} ({sz} bytes)'))
+            print()
         self.display_report()
+
     def finalize(self) -> None:
         self.export_state()
         self.log('Finalized successfully')
