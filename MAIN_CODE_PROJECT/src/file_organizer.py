@@ -14,9 +14,9 @@ import random
 import time
 
 try:
-    from .path_safety import safe_output_path
+    from .path_safety import atomic_write_text, safe_output_path
 except ImportError:
-    from path_safety import safe_output_path
+    from path_safety import atomic_write_text, safe_output_path
 
 @dataclass
 class FileOrganizerAppState:
@@ -93,7 +93,7 @@ class FileOrganizerApp:
 
     def save_json(self, name: str, payload: Dict[str, Any]) -> Path:
         path = safe_output_path(self.output_dir, name)
-        path.write_text(json.dumps(payload, indent=2, default=str), encoding='utf-8')
+        atomic_write_text(path, json.dumps(payload, indent=2, default=str), encoding='utf-8')
         return path
 
     def load_json(self, path: Path) -> Dict[str, Any]:
@@ -105,9 +105,13 @@ class FileOrganizerApp:
             return {}
 
     def save_text(self, name: str, content: str) -> Path:
-        path = safe_output_path(self.output_dir, name)
-        path.write_text(content, encoding='utf-8')
-        return path
+        import tempfile
+        fd, temp_path = tempfile.mkstemp(dir=self.output_dir, suffix='.tmp')
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(content)
+        final_path = safe_output_path(self.output_dir, name)
+        os.replace(temp_path, final_path)
+        return final_path
 
     def load_text(self, path: Path) -> str:
         if not path.exists():
