@@ -8,16 +8,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 import json
-import math
-import os
 import random
 import time
 
-import urllib.error
-import urllib.parse
-import urllib.request
+import threading
 
 @dataclass
 class NewsFetcherAppState:
@@ -27,17 +23,19 @@ class NewsFetcherAppState:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
 class NewsFetcherApp:
-    def __init__(self) -> None:
-        self.state = NewsFetcherAppState()
-        self.output_dir = Path('outputs')
+    def __init__(self, state: NewsFetcherAppState | None = None, output_dir: Path | None = None) -> None:
+        self.state = state if state is not None else NewsFetcherAppState()
+        self.output_dir = output_dir if output_dir is not None else Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
         entry = f'[{stamp}] {message}'
-        self.state.history.append(entry)
+        with self.state._lock:
+            self.state.history.append(entry)
         print(entry)
 
     def section(self, title: str) -> None:
@@ -84,7 +82,7 @@ class NewsFetcherApp:
     def render_table(self, rows: List[Dict[str, Any]]) -> str:
         if not rows:
             return '(empty)'
-        keys = list(rows[0].keys())
+        keys = list(dict.fromkeys(k for row in rows for k in row))
         widths = {k: max(len(k), max(len(str(row.get(k, ''))) for row in rows)) for k in keys}
         header = ' | '.join(k.ljust(widths[k]) for k in keys)
         lines = [header, '-+-'.join('-' * widths[k] for k in keys)]
@@ -116,12 +114,14 @@ class NewsFetcherApp:
         return path.read_text(encoding='utf-8')
 
     def record(self, key: str, value: Any) -> None:
-        self.state.records[key] = value
+        with self.state._lock:
+            self.state.records[key] = value
 
     def toggle(self, key: str, default: bool = False) -> bool:
-        current = self.state.flags.get(key, default)
-        self.state.flags[key] = not current
-        return self.state.flags[key]
+        with self.state._lock:
+            current = self.state.flags.get(key, default)
+            self.state.flags[key] = not current
+            return self.state.flags[key]
 
     def summarize_list(self, values: List[float]) -> Dict[str, Any]:
         if not values:
@@ -143,7 +143,7 @@ class NewsFetcherApp:
             'errors': self.state.errors,
             'records': self.state.records,
             'flags': self.state.flags,
-            'history': self.history_tail(10),
+            'history': self.state.history,
         }
         return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
@@ -177,7 +177,8 @@ class NewsFetcherApp:
         }
 
     def run(self) -> None:
-        self.state.runs += 1
+        with self.state._lock:
+            self.state.runs += 1
         self.section('Fetching News')
         start = time.perf_counter()
         try:
@@ -197,7 +198,8 @@ class NewsFetcherApp:
             self.record('total_posts', len(data))
             self.log(f'Fetched {len(posts)} posts in {elapsed}s')
         except Exception as exc:
-            self.state.errors += 1
+            with self.state._lock:
+                self.state.errors += 1
             self.log(f'News fetch failed: {exc}')
         self.display_report()
     def finalize(self) -> None:

@@ -8,12 +8,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 import json
-import math
-import os
 import random
 import time
+
+import threading
 
 @dataclass
 class ApiResponseParserAppState:
@@ -23,17 +23,19 @@ class ApiResponseParserAppState:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     runs: int = 0
     errors: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
 class ApiResponseParserApp:
-    def __init__(self) -> None:
-        self.state = ApiResponseParserAppState()
-        self.output_dir = Path('outputs')
+    def __init__(self, state: ApiResponseParserAppState | None = None, output_dir: Path | None = None) -> None:
+        self.state = state if state is not None else ApiResponseParserAppState()
+        self.output_dir = output_dir if output_dir is not None else Path('outputs')
         self.output_dir.mkdir(exist_ok=True)
 
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
         entry = f'[{stamp}] {message}'
-        self.state.history.append(entry)
+        with self.state._lock:
+            self.state.history.append(entry)
         print(entry)
 
     def section(self, title: str) -> None:
@@ -80,7 +82,7 @@ class ApiResponseParserApp:
     def render_table(self, rows: List[Dict[str, Any]]) -> str:
         if not rows:
             return '(empty)'
-        keys = list(rows[0].keys())
+        keys = list(dict.fromkeys(k for row in rows for k in row))
         widths = {k: max(len(k), max(len(str(row.get(k, ''))) for row in rows)) for k in keys}
         header = ' | '.join(k.ljust(widths[k]) for k in keys)
         lines = [header, '-+-'.join('-' * widths[k] for k in keys)]
@@ -112,12 +114,14 @@ class ApiResponseParserApp:
         return path.read_text(encoding='utf-8')
 
     def record(self, key: str, value: Any) -> None:
-        self.state.records[key] = value
+        with self.state._lock:
+            self.state.records[key] = value
 
     def toggle(self, key: str, default: bool = False) -> bool:
-        current = self.state.flags.get(key, default)
-        self.state.flags[key] = not current
-        return self.state.flags[key]
+        with self.state._lock:
+            current = self.state.flags.get(key, default)
+            self.state.flags[key] = not current
+            return self.state.flags[key]
 
     def summarize_list(self, values: List[float]) -> Dict[str, Any]:
         if not values:
@@ -139,7 +143,7 @@ class ApiResponseParserApp:
             'errors': self.state.errors,
             'records': self.state.records,
             'flags': self.state.flags,
-            'history': self.history_tail(10),
+            'history': self.state.history,
         }
         return self.save_json(f'{self.__class__.__name__}_state.json', payload)
 
@@ -159,23 +163,30 @@ class ApiResponseParserApp:
             {'name': 'gamma', 'value': 3, 'active': True},
         ]
 
-    def deep_get(self, payload: Dict[str, Any], path: str) -> Any:
+    def deep_get(self, payload: Dict[str, Any], path: str, default: Any = None) -> Any:
+        # Define a unique sentinel object for missing keys
+        MISSING = object()
         current: Any = payload
         for part in path.split('.'):
             if isinstance(current, dict) and part in current:
                 current = current[part]
             else:
-                return None
+                return default
         return current
 
     def parse_fields(self, payload: Dict[str, Any], fields: List[str]) -> Dict[str, Any]:
         parsed: Dict[str, Any] = {}
         for field in fields:
-            parsed[field] = self.deep_get(payload, field)
+            # Use the sentinel to identify missing paths
+            MISSING = object()
+            val = self.deep_get(payload, field, default=MISSING)
+            if val is not MISSING:
+                parsed[field] = val
         return parsed
 
     def run(self) -> None:
-        self.state.runs += 1
+        with self.state._lock:
+            self.state.runs += 1
         sample = {'user': {'id': 1, 'name': 'Leanne', 'contact': {'email': 'a@example.com'}}, 'meta': {'active': True}}
         parsed = self.parse_fields(sample, ['user.name', 'user.contact.email', 'meta.active'])
         self.record('parsed', parsed)
