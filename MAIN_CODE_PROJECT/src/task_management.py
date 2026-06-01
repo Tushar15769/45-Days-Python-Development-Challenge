@@ -12,7 +12,8 @@ class TaskManagementApp(BaseApp):
         return {'title': self.normalize_text(title), 'priority': priority, 'done': False}
 
     def run(self) -> None:
-        self.state.runs += 1
+        with self.state._lock:
+            self.state.runs += 1
         tasks = [self.create_task('Write notes', 2), self.create_task('Push code', 1), self.create_task('Review PR', 3)]
         tasks[0]['done'] = True
         tasks = sorted(tasks, key=lambda x: (x['done'], x['priority']))

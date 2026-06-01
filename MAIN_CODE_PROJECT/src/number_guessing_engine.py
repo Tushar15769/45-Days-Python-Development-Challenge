@@ -19,7 +19,8 @@ class NumberGuessingEngineApp(BaseApp):
         return 'correct'
 
     def run(self) -> None:
-        self.state.runs += 1
+        with self.state._lock:
+            self.state.runs += 1
         target = self.pick_target()
         guesses = [10, 50, 42]
         self.section('Guessing Game')

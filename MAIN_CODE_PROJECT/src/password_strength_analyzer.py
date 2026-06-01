@@ -21,7 +21,8 @@ class PasswordStrengthAnalyzerApp(BaseApp):
         return {'password': password, 'score': score, 'label': label, 'rules': rules}
 
     def run(self) -> None:
-        self.state.runs += 1
+        with self.state._lock:
+            self.state.runs += 1
         self.section('Password Analysis')
         for password in ['abc', 'Abc123!', 'Very$trong99']:
             result = self.analyze(password)

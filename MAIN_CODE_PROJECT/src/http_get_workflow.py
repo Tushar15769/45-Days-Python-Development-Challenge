@@ -44,7 +44,8 @@ class HttpGetWorkflowApp(BaseApp):
             self.record('last_response', data)
             self.display_result(data)
         except Exception as exc:
-            self.state.errors += 1
+            with self.state._lock:
+                self.state.errors += 1
             self.log(f'HTTP workflow failed: {exc}')
         self.display_report()
     def http_get_workflow_utility_1(self, value: Any) -> Any:

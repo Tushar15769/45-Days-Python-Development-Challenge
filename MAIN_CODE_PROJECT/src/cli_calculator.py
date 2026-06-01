@@ -6,6 +6,9 @@ from base_app import BaseApp, BaseAppState
 from typing import Any, Dict, List, Optional, Tuple
 import json
 import time
+from .config import AppConfig
+
+import threading
 
 class CliCalculatorApp(BaseApp):
     def parse_expression(self, text: str) -> Tuple[float, str, float]:
@@ -28,14 +31,15 @@ class CliCalculatorApp(BaseApp):
         return operations[op]
 
     def run(self) -> None:
-        self.state.runs += 1
+        with self.state._lock:
+            self.state.runs += 1
         samples = ['5 + 2', '8 / 0', '4 ** 3', '10 ? 2']
-        self.section('Calculator Runs')
+        self.output.section('Calculator Runs')
         for item in samples:
             try:
                 a, op, b = self.parse_expression(item)
                 result = self.compute(a, op, b)
-                print(self.format_kv(item, result))
+                self.output.kv(item, result)
             except Exception as exc:
                 self.state.errors += 1
                 print(self.format_kv(item, f'error: {exc}'))
@@ -110,6 +114,10 @@ class CliCalculatorApp(BaseApp):
             return [self.normalize_text(str(x)) for x in value]
         return value
 
+                with self.state._lock:
+                    self.state.errors += 1
+                print(self.format_kv(item, f'error: {exc}'))
+        self.display_report()
 def main() -> None:
     app = CliCalculatorApp()
     try:

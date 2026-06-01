@@ -24,7 +24,8 @@ class ApiResponseParserApp(BaseApp):
         return parsed
 
     def run(self) -> None:
-        self.state.runs += 1
+        with self.state._lock:
+            self.state.runs += 1
         sample = {'user': {'id': 1, 'name': 'Leanne', 'contact': {'email': 'a@example.com'}}, 'meta': {'active': True}}
         parsed = self.parse_fields(sample, ['user.name', 'user.contact.email', 'meta.active'])
         self.record('parsed', parsed)
