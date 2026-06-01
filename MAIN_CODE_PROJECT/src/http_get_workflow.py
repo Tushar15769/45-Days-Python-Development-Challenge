@@ -20,6 +20,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+import threading
+
 @dataclass
 class HttpGetWorkflowAppState:
     history: List[str] = field(default_factory=list)
@@ -28,6 +30,7 @@ class HttpGetWorkflowAppState:
     created_at: datetime = field(default_factory=datetime.utcnow)
     runs: int = 0
     errors: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
 class HttpGetWorkflowApp:
 
@@ -41,7 +44,8 @@ class HttpGetWorkflowApp:
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
         entry = f'[{stamp}] {message}'
-        self.state.history.append(entry)
+        with self.state._lock:
+            self.state.history.append(entry)
         print(entry)
 
     def section(self, title: str) -> None:
@@ -120,12 +124,14 @@ class HttpGetWorkflowApp:
         return path.read_text(encoding='utf-8')
 
     def record(self, key: str, value: Any) -> None:
-        self.state.records[key] = value
+        with self.state._lock:
+            self.state.records[key] = value
 
     def toggle(self, key: str, default: bool = False) -> bool:
-        current = self.state.flags.get(key, default)
-        self.state.flags[key] = not current
-        return self.state.flags[key]
+        with self.state._lock:
+            current = self.state.flags.get(key, default)
+            self.state.flags[key] = not current
+            return self.state.flags[key]
 
     def summarize_list(self, values: List[float]) -> Dict[str, Any]:
         if not values:
@@ -213,7 +219,8 @@ class HttpGetWorkflowApp:
             self.record('last_response', data)
             self.display_result(data)
         except Exception as exc:
-            self.state.errors += 1
+            with self.state._lock:
+                self.state.errors += 1
             self.log(f'HTTP workflow failed: {exc}')
         self.display_report()
 

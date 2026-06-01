@@ -15,6 +15,9 @@ import os
 import random
 import statistics
 import time
+from .config import AppConfig
+
+import threading
 
 @dataclass
 class BankingSimulationAppState:
@@ -24,6 +27,7 @@ class BankingSimulationAppState:
     created_at: datetime = field(default_factory=datetime.utcnow)
     runs: int = 0
     errors: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
 class BankingSimulationApp:
 
@@ -37,11 +41,12 @@ class BankingSimulationApp:
     def log(self, message: str) -> None:
         stamp = datetime.now().strftime('%H:%M:%S')
         entry = f'[{stamp}] {message}'
-        self.state.history.append(entry)
+        with self.state._lock:
+            self.state.history.append(entry)
         print(entry)
 
     def section(self, title: str) -> None:
-        print()
+        self.output.write("\n")
         print('=' * 70)
         print(title)
         print('=' * 70)
@@ -116,12 +121,14 @@ class BankingSimulationApp:
         return path.read_text(encoding='utf-8')
 
     def record(self, key: str, value: Any) -> None:
-        self.state.records[key] = value
+        with self.state._lock:
+            self.state.records[key] = value
 
     def toggle(self, key: str, default: bool = False) -> bool:
-        current = self.state.flags.get(key, default)
-        self.state.flags[key] = not current
-        return self.state.flags[key]
+        with self.state._lock:
+            current = self.state.flags.get(key, default)
+            self.state.flags[key] = not current
+            return self.state.flags[key]
 
     def summarize_list(self, values: List[float]) -> Dict[str, Any]:
         if not values:
@@ -148,7 +155,7 @@ class BankingSimulationApp:
         }
 
     def history_tail(self, count: int = 5) -> List[str]:
-        return self.state.history[-count:]
+        return self.state.transient.history[-count:]
 
     def export_state(self) -> Path:
         payload = {
@@ -162,13 +169,13 @@ class BankingSimulationApp:
         return self.save_json('state.json', payload)
 
     def display_report(self) -> None:
-        self.section('Summary')
-        print(self.format_kv('Runs', self.state.runs))
-        print(self.format_kv('Errors', self.state.errors))
-        print(self.format_kv('Records', len(self.state.records)))
-        print(self.format_kv('Flags', len(self.state.flags)))
-        print(self.format_kv('History entries', len(self.state.history)))
-        self.log(f'Exported to {self.export_state()}')
+        self.output.section('Summary')
+        self.output.kv('Runs', self.state.runs)
+        self.output.kv('Errors', self.state.errors)
+        self.output.kv('Records', len(self.state.records))
+        self.output.kv('Flags', len(self.state.flags))
+        self.output.kv('History entries', len(self.state.history))
+        self.output.log(f'Exported to {self.export_state()}')
 
     def demo_data(self) -> List[Dict[str, Any]]:
         return [
@@ -176,9 +183,6 @@ class BankingSimulationApp:
             {'type': 'withdrawal', 'amount': 200.0, 'timestamp': '2026-05-29T10:15:00'},
             {'type': 'deposit', 'amount': 350.0, 'timestamp': '2026-05-29T10:30:00'},
         ]
-
-    def dataset(self) -> List[Dict[str, Any]]:
-        return self.demo_data()
 
     def process_dataset(self, items: List[Dict[str, Any]]) -> Dict[str, Any]:
         balance = 0.0
