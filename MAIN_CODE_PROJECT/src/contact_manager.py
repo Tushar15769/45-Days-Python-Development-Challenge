@@ -13,6 +13,8 @@ import json
 import random
 import time
 
+import os
+
 @dataclass
 class ContactManagerAppState:
     history: List[str] = field(default_factory=list)
@@ -25,7 +27,7 @@ class ContactManagerAppState:
 class ContactManagerApp:
     def __init__(self) -> None:
         self.state = ContactManagerAppState()
-        self.output_dir = Path('outputs')
+        self.output_dir = Path(os.getenv('OUTPUT_DIR', 'outputs'))
         self.output_dir.mkdir(exist_ok=True)
 
     def log(self, message: str) -> None:
@@ -226,18 +228,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-<<<<<<< Updated upstream
-=======
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> Stashed changes

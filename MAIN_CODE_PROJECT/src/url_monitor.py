@@ -16,6 +16,8 @@ import time
 import urllib.error
 import urllib.request
 
+import os
+
 @dataclass
 class UrlMonitorAppState:
     history: List[str] = field(default_factory=list)
@@ -28,7 +30,7 @@ class UrlMonitorAppState:
 class UrlMonitorApp:
     def __init__(self) -> None:
         self.state = UrlMonitorAppState()
-        self.output_dir = Path('outputs')
+        self.output_dir = Path(os.getenv('OUTPUT_DIR', 'outputs'))
         self.output_dir.mkdir(exist_ok=True)
 
     def log(self, message: str) -> None:
@@ -217,18 +219,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-<<<<<<< Updated upstream
-=======
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> Stashed changes

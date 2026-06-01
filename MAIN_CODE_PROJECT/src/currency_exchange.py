@@ -17,6 +17,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+import os
+
 @dataclass
 class CurrencyExchangeAppState:
     history: List[str] = field(default_factory=list)
@@ -29,7 +31,7 @@ class CurrencyExchangeAppState:
 class CurrencyExchangeApp:
     def __init__(self) -> None:
         self.state = CurrencyExchangeAppState()
-        self.output_dir = Path('outputs')
+        self.output_dir = Path(os.getenv('OUTPUT_DIR', 'outputs'))
         self.output_dir.mkdir(exist_ok=True)
 
     def log(self, message: str) -> None:
@@ -215,18 +217,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-<<<<<<< Updated upstream
-=======
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> Stashed changes

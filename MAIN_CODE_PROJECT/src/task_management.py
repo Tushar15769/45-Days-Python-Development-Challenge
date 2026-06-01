@@ -13,6 +13,8 @@ import json
 import random
 import time
 
+import os
+
 @dataclass
 class TaskManagementAppState:
     history: List[str] = field(default_factory=list)
@@ -25,7 +27,7 @@ class TaskManagementAppState:
 class TaskManagementApp:
     def __init__(self) -> None:
         self.state = TaskManagementAppState()
-        self.output_dir = Path('outputs')
+        self.output_dir = Path(os.getenv('OUTPUT_DIR', 'outputs'))
         self.output_dir.mkdir(exist_ok=True)
 
     def log(self, message: str) -> None:
@@ -203,18 +205,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-<<<<<<< Updated upstream
-=======
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> Stashed changes

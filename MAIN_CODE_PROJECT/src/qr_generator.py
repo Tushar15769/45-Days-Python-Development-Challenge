@@ -13,6 +13,8 @@ import json
 import random
 import time
 
+import os
+
 @dataclass
 class QrGeneratorAppState:
     history: List[str] = field(default_factory=list)
@@ -25,7 +27,7 @@ class QrGeneratorAppState:
 class QrGeneratorApp:
     def __init__(self) -> None:
         self.state = QrGeneratorAppState()
-        self.output_dir = Path('outputs')
+        self.output_dir = Path(os.getenv('OUTPUT_DIR', 'outputs'))
         self.output_dir.mkdir(exist_ok=True)
         self.seed = 42
         random.seed(self.seed)
@@ -436,18 +438,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-<<<<<<< Updated upstream
-=======
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> Stashed changes

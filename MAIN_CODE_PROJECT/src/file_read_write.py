@@ -13,6 +13,8 @@ import json
 import random
 import time
 
+import os
+
 @dataclass
 class FileReadWriteAppState:
     history: List[str] = field(default_factory=list)
@@ -25,7 +27,7 @@ class FileReadWriteAppState:
 class FileReadWriteApp:
     def __init__(self) -> None:
         self.state = FileReadWriteAppState()
-        self.output_dir = Path('outputs')
+        self.output_dir = Path(os.getenv('OUTPUT_DIR', 'outputs'))
         self.output_dir.mkdir(exist_ok=True)
 
     def log(self, message: str) -> None:
@@ -213,18 +215,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-<<<<<<< Updated upstream
-=======
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> Stashed changes

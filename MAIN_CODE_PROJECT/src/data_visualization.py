@@ -13,6 +13,8 @@ import json
 import random
 import time
 
+import os
+
 @dataclass
 class DataVisualizationAppState:
     history: List[str] = field(default_factory=list)
@@ -25,7 +27,7 @@ class DataVisualizationAppState:
 class DataVisualizationApp:
     def __init__(self) -> None:
         self.state = DataVisualizationAppState()
-        self.output_dir = Path('outputs')
+        self.output_dir = Path(os.getenv('OUTPUT_DIR', 'outputs'))
         self.output_dir.mkdir(exist_ok=True)
         self.seed = 42
         random.seed(self.seed)
@@ -273,18 +275,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-<<<<<<< Updated upstream
-=======
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> Stashed changes
