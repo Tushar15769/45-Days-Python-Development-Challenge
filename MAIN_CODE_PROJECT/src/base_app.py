@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from call_graph_analysis import CallGraphEngine, CallGraph
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._cg = CallGraphEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,38 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Call Graph Analysis ────────────────────────────────────
+
+    def cg_create(self, instance_id: str = 'default') -> CallGraph:
+        return self._cg.create(instance_id)
+
+    def cg_build_call_graph(self, instance_id: str, entry_points: List[str]) -> None:
+        self._cg.build_call_graph(instance_id, entry_points)
+
+    def cg_callers_of(self, instance_id: str, method: str) -> List[str]:
+        return self._cg.callers_of(instance_id, method)
+
+    def cg_callees_at(self, instance_id: str, call_site_method: str) -> List[Dict[str, Any]]:
+        return self._cg.callees_at(instance_id, call_site_method)
+
+    def cg_unreachable_methods(self, instance_id: str = 'default') -> List[str]:
+        return self._cg.unreachable_methods(instance_id)
+
+    def cg_reachable_methods(self, instance_id: str = 'default') -> List[str]:
+        return self._cg.reachable_methods(instance_id)
+
+    def cg_graph_stats(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._cg.graph_stats(instance_id)
+
+    def cg_summary(self) -> Dict[str, Any]:
+        return self._cg.summary()
+
+    def cg_list(self) -> List[str]:
+        return self._cg.list()
+
+    def cg_remove(self, instance_id: str) -> bool:
+        return self._cg.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
