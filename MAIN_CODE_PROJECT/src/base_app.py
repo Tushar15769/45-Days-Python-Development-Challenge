@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from dpll_sat_solver import SATSolverEngine, SATSolver
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._sat = SATSolverEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,38 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── DPLL SAT Solver ────────────────────────────────────────
+
+    def sat_create(self, instance_id: str = 'default') -> SATSolver:
+        return self._sat.create(instance_id)
+
+    def sat_solve(self, instance_id: str, cnf: List[List[int]]) -> bool:
+        return self._sat.solve(instance_id, cnf)
+
+    def sat_model(self, instance_id: str = 'default') -> Optional[Dict[int, bool]]:
+        return self._sat.model(instance_id)
+
+    def sat_conflict_clauses_count(self, instance_id: str = 'default') -> int:
+        return self._sat.conflict_clauses_count(instance_id)
+
+    def sat_decisions(self, instance_id: str = 'default') -> int:
+        return self._sat.decisions(instance_id)
+
+    def sat_propagations(self, instance_id: str = 'default') -> int:
+        return self._sat.propagations(instance_id)
+
+    def sat_solver_stats(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._sat.solver_stats(instance_id)
+
+    def sat_summary(self) -> Dict[str, Any]:
+        return self._sat.summary()
+
+    def sat_list(self) -> List[str]:
+        return self._sat.list()
+
+    def sat_remove(self, instance_id: str) -> bool:
+        return self._sat.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
