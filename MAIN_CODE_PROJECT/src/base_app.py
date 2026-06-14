@@ -5,7 +5,7 @@ from copy import deepcopy as _deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
 import json
 import math
 import os
@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from disruptor import DisruptorEngine, Disruptor, ConsumerInfo
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._disruptor = DisruptorEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,43 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Disruptor ring buffer ──────────────────────────────────────
+
+    def dr_create(self, name: str = 'default', buffer_size: int = 1024,
+                  wait_strategy: str = 'spin') -> Disruptor:
+        return self._disruptor.create(name, buffer_size, wait_strategy)
+
+    def dr_publish(self, event: Any, name: str = 'default') -> bool:
+        return self._disruptor.publish(event, name)
+
+    def dr_consume(self, handler: Callable[[Any], None],
+                   name: str = 'default') -> ConsumerInfo:
+        return self._disruptor.consume(handler, name)
+
+    def dr_start(self, name: str = 'default') -> None:
+        self._disruptor.start(name)
+
+    def dr_stop(self, name: str = 'default') -> None:
+        self._disruptor.stop(name)
+
+    def dr_cursor(self, name: str = 'default') -> int:
+        return self._disruptor.cursor(name)
+
+    def dr_remaining_capacity(self, name: str = 'default') -> int:
+        return self._disruptor.remaining_capacity(name)
+
+    def dr_metrics(self, name: str = 'default') -> Dict[str, Any]:
+        return self._disruptor.metrics(name)
+
+    def dr_summary(self) -> Dict[str, Any]:
+        return self._disruptor.summary()
+
+    def dr_list(self) -> List[str]:
+        return self._disruptor.list()
+
+    def dr_remove(self, name: str) -> bool:
+        return self._disruptor.remove(name)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
