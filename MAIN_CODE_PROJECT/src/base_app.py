@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from cfg_analysis import CFGEngine, CFG, BasicBlock
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._cfg = CFGEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,41 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Control Flow Graph Analysis ───────────────────────────────
+
+    def cfg_create(self, instance_id: str = 'default') -> CFG:
+        return self._cfg.create(instance_id)
+
+    def cfg_build(self, instance_id: str, source: str) -> None:
+        self._cfg.build_cfg(instance_id, source)
+
+    def cfg_basic_blocks(self, instance_id: str = 'default') -> List[Dict[str, Any]]:
+        return self._cfg.basic_blocks(instance_id)
+
+    def cfg_edges(self, instance_id: str = 'default') -> List[Tuple[str, str]]:
+        return self._cfg.edges(instance_id)
+
+    def cfg_dominance_tree(self, instance_id: str = 'default') -> Dict[str, List[str]]:
+        return self._cfg.dominance_tree(instance_id)
+
+    def cfg_loop_nesting_tree(self, instance_id: str = 'default') -> List[Dict[str, Any]]:
+        return self._cfg.loop_nesting_tree(instance_id)
+
+    def cfg_block_depth(self, instance_id: str, block_id: str) -> int:
+        return self._cfg.block_depth(instance_id, block_id)
+
+    def cfg_metrics(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._cfg.cfg_metrics(instance_id)
+
+    def cfg_summary(self) -> Dict[str, Any]:
+        return self._cfg.summary()
+
+    def cfg_list(self) -> List[str]:
+        return self._cfg.list()
+
+    def cfg_remove(self, instance_id: str) -> bool:
+        return self._cfg.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
