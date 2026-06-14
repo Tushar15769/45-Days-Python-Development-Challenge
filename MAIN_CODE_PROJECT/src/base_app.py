@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from bft_replication import BFTEngine, BFTNode
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._bft = BFTEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,44 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── BFT Replication ───────────────────────────────────────────
+
+    def bft_create(self, node_id: str, total_replicas: int = 4) -> BFTNode:
+        return self._bft.create(node_id, total_replicas)
+
+    def bft_execute(self, node_id: str, command: Any) -> Optional[Any]:
+        return self._bft.execute(node_id, command)
+
+    def bft_view_number(self, node_id: str) -> int:
+        return self._bft.view_number(node_id)
+
+    def bft_last_checkpoint(self, node_id: str) -> int:
+        return self._bft.last_checkpoint(node_id)
+
+    def bft_view_change(self, node_id: str, new_view: int) -> bool:
+        return self._bft.view_change(node_id, new_view)
+
+    def bft_simulate_failure(self, node_id: str) -> None:
+        self._bft.simulate_failure(node_id)
+
+    def bft_simulate_byzantine(self, node_id: str) -> None:
+        self._bft.simulate_byzantine(node_id)
+
+    def bft_recover(self, node_id: str) -> None:
+        self._bft.recover(node_id)
+
+    def bft_metrics(self, node_id: str) -> Dict[str, Any]:
+        return self._bft.bft_metrics(node_id)
+
+    def bft_summary(self) -> Dict[str, Any]:
+        return self._bft.summary()
+
+    def bft_list(self) -> List[str]:
+        return self._bft.list()
+
+    def bft_remove(self, node_id: str) -> bool:
+        return self._bft.remove(node_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
