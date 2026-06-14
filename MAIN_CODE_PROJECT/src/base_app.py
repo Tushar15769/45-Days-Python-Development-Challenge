@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from ltl_model_checker import LTLModelCheckerEngine, LTLModelChecker
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._ltl = LTLModelCheckerEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,35 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── LTL Model Checker ──────────────────────────────────────
+
+    def ltl_create(self, instance_id: str = 'default') -> LTLModelChecker:
+        return self._ltl.create(instance_id)
+
+    def ltl_check(self, instance_id: str, system_kripke: Dict[str, Any], ltl_formula: str) -> bool:
+        return self._ltl.check(instance_id, system_kripke, ltl_formula)
+
+    def ltl_counterexample(self, instance_id: str = 'default') -> Optional[List[Dict[str, str]]]:
+        return self._ltl.counterexample(instance_id)
+
+    def ltl_reachable_states(self, instance_id: str = 'default') -> int:
+        return self._ltl.reachable_states(instance_id)
+
+    def ltl_unexplored_states(self, instance_id: str = 'default') -> int:
+        return self._ltl.unexplored_states(instance_id)
+
+    def ltl_stats(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._ltl.mc_stats(instance_id)
+
+    def ltl_summary(self) -> Dict[str, Any]:
+        return self._ltl.summary()
+
+    def ltl_list(self) -> List[str]:
+        return self._ltl.list()
+
+    def ltl_remove(self, instance_id: str) -> bool:
+        return self._ltl.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
