@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from abd_quorum_register import ABDEngine, ABDRegister, ABDReplica
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._abd = ABDEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,44 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── ABD Quorum Atomic Register ───────────────────────────────
+
+    def abd_create_replica(self, replica_id: str) -> ABDReplica:
+        return self._abd.create_replica(replica_id)
+
+    def abd_create_register(self, key: str, replica_ids: List[str]) -> Optional[ABDRegister]:
+        return self._abd.create_register(key, replica_ids)
+
+    def abd_write(self, key: str, value: Any) -> bool:
+        return self._abd.write(key, value)
+
+    def abd_read(self, key: str) -> Optional[Any]:
+        return self._abd.read(key)
+
+    def abd_current_timestamp(self, key: str) -> int:
+        return self._abd.current_timestamp(key)
+
+    def abd_quorum_size(self, key: str) -> int:
+        return self._abd.quorum_size(key)
+
+    def abd_metrics(self, key: str) -> Dict[str, Any]:
+        return self._abd.abd_metrics(key)
+
+    def abd_summary(self) -> Dict[str, Any]:
+        return self._abd.summary()
+
+    def abd_list_registers(self) -> List[str]:
+        return self._abd.list_registers()
+
+    def abd_list_replicas(self) -> List[str]:
+        return self._abd.list_replicas()
+
+    def abd_remove_replica(self, replica_id: str) -> bool:
+        return self._abd.remove_replica(replica_id)
+
+    def abd_remove_register(self, key: str) -> bool:
+        return self._abd.remove_register(key)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
