@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from reaching_definitions import ReachingDefinitionsEngine, ReachingDefinitions, Definition
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._rd = ReachingDefinitionsEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,39 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Reaching Definitions Analysis ─────────────────────────────
+
+    def rd_create(self, instance_id: str = 'default') -> ReachingDefinitions:
+        return self._rd.create(instance_id)
+
+    def rd_analyze(self, instance_id: str, basic_blocks: List[Dict[str, Any]],
+                   edges: List[Tuple[str, str]], entry: Optional[str] = None) -> None:
+        self._rd.analyze(instance_id, basic_blocks, edges, entry)
+
+    def rd_reaching_defs_at(self, instance_id: str, block_id: str) -> List[Dict[str, Any]]:
+        return self._rd.reaching_defs_at(instance_id, block_id)
+
+    def rd_kill_set(self, instance_id: str, block_id: str) -> List[Dict[str, Any]]:
+        return self._rd.kill_set(instance_id, block_id)
+
+    def rd_gen_set(self, instance_id: str, block_id: str) -> List[Dict[str, Any]]:
+        return self._rd.gen_set(instance_id, block_id)
+
+    def rd_dead_assignments(self, instance_id: str = 'default') -> List[Dict[str, Any]]:
+        return self._rd.dead_assignments(instance_id)
+
+    def rd_metrics(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._rd.rd_metrics(instance_id)
+
+    def rd_summary(self) -> Dict[str, Any]:
+        return self._rd.summary()
+
+    def rd_list(self) -> List[str]:
+        return self._rd.list()
+
+    def rd_remove(self, instance_id: str) -> bool:
+        return self._rd.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
