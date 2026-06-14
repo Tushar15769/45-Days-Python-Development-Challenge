@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from andersen_pointer_analysis import AndersenAnalysisEngine, PointsToAnalysis
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._pta = AndersenAnalysisEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,44 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Andersen Pointer Analysis ──────────────────────────────
+
+    def pta_create(self, instance_id: str = 'default') -> PointsToAnalysis:
+        return self._pta.create(instance_id)
+
+    def pta_add_addr_of(self, instance_id: str, lhs: str, rhs: str) -> None:
+        self._pta.add_addr_of(instance_id, lhs, rhs)
+
+    def pta_add_assign(self, instance_id: str, lhs: str, rhs: str) -> None:
+        self._pta.add_assign(instance_id, lhs, rhs)
+
+    def pta_add_load(self, instance_id: str, lhs: str, rhs: str) -> None:
+        self._pta.add_load(instance_id, lhs, rhs)
+
+    def pta_add_store(self, instance_id: str, lhs: str, rhs: str) -> None:
+        self._pta.add_store(instance_id, lhs, rhs)
+
+    def pta_solve(self, instance_id: str = 'default') -> None:
+        self._pta.solve(instance_id)
+
+    def pta_points_to(self, instance_id: str, variable: str) -> List[str]:
+        return self._pta.points_to(instance_id, variable)
+
+    def pta_alias(self, instance_id: str, a: str, b: str) -> bool:
+        return self._pta.alias(instance_id, a, b)
+
+    def pta_constraint_graph_stats(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._pta.constraint_graph_stats(instance_id)
+
+    def pta_summary(self) -> Dict[str, Any]:
+        return self._pta.summary()
+
+    def pta_list(self) -> List[str]:
+        return self._pta.list()
+
+    def pta_remove(self, instance_id: str) -> bool:
+        return self._pta.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
