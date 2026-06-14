@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from chain_replication import ChainReplicationEngine, ChainReplication
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._chain_rep = ChainReplicationEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,35 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Chain Replication State Machine ───────────────────────────
+
+    def cr_create(self, chain_id: str, replica_ids: Optional[List[str]] = None) -> ChainReplication:
+        return self._chain_rep.create(chain_id, replica_ids)
+
+    def cr_write(self, chain_id: str, key: str, value: Any) -> bool:
+        return self._chain_rep.write(chain_id, key, value)
+
+    def cr_read(self, chain_id: str, key: str) -> Optional[Any]:
+        return self._chain_rep.read(chain_id, key)
+
+    def cr_chain_status(self, chain_id: str) -> Dict[str, Any]:
+        return self._chain_rep.chain_status(chain_id)
+
+    def cr_reconfigure(self, chain_id: str, removed_node: str) -> bool:
+        return self._chain_rep.reconfigure(chain_id, removed_node)
+
+    def cr_metrics(self, chain_id: str) -> Dict[str, Any]:
+        return self._chain_rep.chain_metrics(chain_id)
+
+    def cr_summary(self) -> Dict[str, Any]:
+        return self._chain_rep.summary()
+
+    def cr_list(self) -> List[str]:
+        return self._chain_rep.list()
+
+    def cr_remove(self, chain_id: str) -> bool:
+        return self._chain_rep.remove(chain_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
