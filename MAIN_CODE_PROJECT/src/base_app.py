@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from bayesian_network import BayesianEngine, BayesianNetwork, BayesNetNode
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._bayes = BayesianEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,35 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Bayesian Network Inference ────────────────────────────────
+
+    def bn_create(self, instance_id: str = 'default') -> BayesianNetwork:
+        return self._bayes.create(instance_id)
+
+    def bn_add_node(self, instance_id: str, name: str, cpt: Dict[Tuple[str, ...], float],
+                    parents: Optional[List[str]] = None) -> None:
+        self._bayes.add_node(instance_id, name, cpt, parents)
+
+    def bn_infer(self, instance_id: str, query: List[str],
+                 evidence: Optional[Dict[str, str]] = None) -> Dict[str, float]:
+        return self._bayes.infer(instance_id, query, evidence)
+
+    def bn_most_probable_explanation(self, instance_id: str,
+                                     evidence: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+        return self._bayes.most_probable_explanation(instance_id, evidence)
+
+    def bn_metrics(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._bayes.bn_metrics(instance_id)
+
+    def bn_summary(self) -> Dict[str, Any]:
+        return self._bayes.summary()
+
+    def bn_list(self) -> List[str]:
+        return self._bayes.list()
+
+    def bn_remove(self, instance_id: str) -> bool:
+        return self._bayes.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
