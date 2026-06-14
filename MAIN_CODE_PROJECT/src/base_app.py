@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from kalman_filter import KalmanEngine, KalmanFilter, _VEC, _MAT
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._kalman = KalmanEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,63 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Kalman Filter ─────────────────────────────────────────────
+
+    def kf_create(self, instance_id: str, dim_x: int, dim_z: int) -> KalmanFilter:
+        return self._kalman.create(instance_id, dim_x, dim_z)
+
+    def kf_set_state(self, instance_id: str, x: _VEC, P: _MAT) -> None:
+        kf = self._kalman.get(instance_id)
+        if kf is not None:
+            kf.set_state(x, P)
+
+    def kf_set_transition(self, instance_id: str, F: _MAT) -> None:
+        kf = self._kalman.get(instance_id)
+        if kf is not None:
+            kf.set_transition(F)
+
+    def kf_set_observation(self, instance_id: str, H: _MAT) -> None:
+        kf = self._kalman.get(instance_id)
+        if kf is not None:
+            kf.set_observation(H)
+
+    def kf_set_process_noise(self, instance_id: str, Q: _MAT) -> None:
+        kf = self._kalman.get(instance_id)
+        if kf is not None:
+            kf.set_process_noise(Q)
+
+    def kf_set_measurement_noise(self, instance_id: str, R: _MAT) -> None:
+        kf = self._kalman.get(instance_id)
+        if kf is not None:
+            kf.set_measurement_noise(R)
+
+    def kf_predict(self, instance_id: str) -> None:
+        self._kalman.predict(instance_id)
+
+    def kf_update(self, instance_id: str, measurement: _VEC) -> None:
+        self._kalman.update(instance_id, measurement)
+
+    def kf_state_estimate(self, instance_id: str) -> Optional[_VEC]:
+        return self._kalman.state_estimate(instance_id)
+
+    def kf_covariance_matrix(self, instance_id: str) -> Optional[_MAT]:
+        return self._kalman.covariance_matrix(instance_id)
+
+    def kf_innovation(self, instance_id: str) -> Optional[_VEC]:
+        return self._kalman.innovation(instance_id)
+
+    def kf_metrics(self, instance_id: str) -> Dict[str, Any]:
+        return self._kalman.kf_metrics(instance_id)
+
+    def kf_summary(self) -> Dict[str, Any]:
+        return self._kalman.summary()
+
+    def kf_list(self) -> List[str]:
+        return self._kalman.list()
+
+    def kf_remove(self, instance_id: str) -> bool:
+        return self._kalman.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
