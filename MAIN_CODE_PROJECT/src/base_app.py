@@ -5,7 +5,7 @@ from copy import deepcopy as _deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
 import json
 import math
 import os
@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from mcts_search import MCTSEngine, MCTS, MCTSNode
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._mcts = MCTSEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,51 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Monte Carlo Tree Search ───────────────────────────────────
+
+    def mcts_create(self, instance_id: str = 'default',
+                    exploration_constant: float = 1.414, max_depth: int = 100) -> MCTS:
+        return self._mcts.create(instance_id, exploration_constant, max_depth)
+
+    def mcts_set_rollout_policy(self, instance_id: str,
+                                policy: Callable[[str, int], float]) -> None:
+        mcts = self._mcts.get(instance_id)
+        if mcts is not None:
+            mcts.set_rollout_policy(policy)
+
+    def mcts_set_action_sampler(self, instance_id: str,
+                                sampler: Callable[[str], List[int]]) -> None:
+        mcts = self._mcts.get(instance_id)
+        if mcts is not None:
+            mcts.set_action_sampler(sampler)
+
+    def mcts_search(self, instance_id: str, state_id: str, n_simulations: int = 1000) -> None:
+        self._mcts.search(instance_id, state_id, n_simulations)
+
+    def mcts_best_action(self, instance_id: str = 'default') -> Optional[int]:
+        return self._mcts.best_action(instance_id)
+
+    def mcts_visit_counts(self, instance_id: str = 'default') -> Dict[str, int]:
+        return self._mcts.visit_counts(instance_id)
+
+    def mcts_q_values(self, instance_id: str = 'default') -> Dict[str, float]:
+        return self._mcts.q_values(instance_id)
+
+    def mcts_tree_depth(self, instance_id: str = 'default') -> int:
+        return self._mcts.tree_depth(instance_id)
+
+    def mcts_metrics(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._mcts.mcts_metrics(instance_id)
+
+    def mcts_summary(self) -> Dict[str, Any]:
+        return self._mcts.summary()
+
+    def mcts_list(self) -> List[str]:
+        return self._mcts.list()
+
+    def mcts_remove(self, instance_id: str) -> bool:
+        return self._mcts.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
