@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from vector_clock import VectorClockEngine, VectorClock
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._vclock = VectorClockEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,38 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Vector Clock Causality Tracking ───────────────────────────
+
+    def vc_create(self, process_id: str, all_processes: Optional[List[str]] = None) -> VectorClock:
+        return self._vclock.create(process_id, all_processes)
+
+    def vc_increment(self, process_id: str) -> Optional[Dict[str, int]]:
+        return self._vclock.increment(process_id)
+
+    def vc_merge(self, process_id: str, other: Dict[str, int]) -> Optional[Dict[str, int]]:
+        return self._vclock.merge(process_id, other)
+
+    def vc_snapshot(self, process_id: str) -> Optional[Dict[str, int]]:
+        return self._vclock.snapshot(process_id)
+
+    def vc_happens_before(self, a: Dict[str, int], b: Dict[str, int]) -> bool:
+        return VectorClockEngine.happens_before(a, b)
+
+    def vc_concurrent(self, a: Dict[str, int], b: Dict[str, int]) -> bool:
+        return VectorClockEngine.concurrent(a, b)
+
+    def vc_causal_history(self, process_id: str, key: str) -> List[Dict[str, Any]]:
+        return self._vclock.causal_history(process_id, key)
+
+    def vc_summary(self) -> Dict[str, Any]:
+        return self._vclock.summary()
+
+    def vc_list(self) -> List[str]:
+        return self._vclock.list()
+
+    def vc_remove(self, process_id: str) -> bool:
+        return self._vclock.remove(process_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
