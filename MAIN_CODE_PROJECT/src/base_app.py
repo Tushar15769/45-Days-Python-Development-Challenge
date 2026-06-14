@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from oblivious_transfer import OTEngine, ObliviousTransfer, OTParams, OTSenderRound1, OTReceiverRound1
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._ot = OTEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,45 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Oblivious Transfer ────────────────────────────────────────
+
+    def ot_create(self, instance_id: str = 'default', key_size: int = 2048) -> ObliviousTransfer:
+        return self._ot.create(instance_id, key_size)
+
+    def ot_setup_params(self, instance_id: str = 'default') -> Optional[OTParams]:
+        return self._ot.setup_params(instance_id)
+
+    def ot_sender_round1(self, instance_id: str, message0: int, message1: int,
+                         params: OTParams) -> Optional[Tuple[OTSenderRound1, int]]:
+        return self._ot.sender_round1(instance_id, message0, message1, params)
+
+    def ot_receiver_round1(self, instance_id: str, choice_bit: int,
+                           sender_msg: OTSenderRound1,
+                           params: OTParams) -> Optional[Tuple[OTReceiverRound1, int]]:
+        return self._ot.receiver_round1(instance_id, choice_bit, sender_msg, params)
+
+    def ot_sender_round2(self, instance_id: str, receiver_msg: OTReceiverRound1, x: int,
+                         message0: int, message1: int,
+                         params: OTParams) -> Optional[OTSenderRound1]:
+        return self._ot.sender_round2(instance_id, receiver_msg, x, message0, message1, params)
+
+    def ot_receiver_finalize(self, instance_id: str, choice_bit: int, k: int,
+                             sender_response: OTSenderRound1,
+                             params: OTParams) -> Optional[int]:
+        return self._ot.receiver_finalize(instance_id, choice_bit, k, sender_response, params)
+
+    def ot_metrics(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._ot.ot_metrics(instance_id)
+
+    def ot_summary(self) -> Dict[str, Any]:
+        return self._ot.summary()
+
+    def ot_list(self) -> List[str]:
+        return self._ot.list()
+
+    def ot_remove(self, instance_id: str) -> bool:
+        return self._ot.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
