@@ -5,7 +5,7 @@ from copy import deepcopy as _deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
 import json
 import math
 import os
@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from rcu_sync import RCUEngine, RCU, RCUProtectedValue
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._rcu_sync = RCUEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,35 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── RCU read-copy-update synchronization ───────────────────────
+
+    def rcu_create(self, name: str = 'default') -> RCU:
+        return self._rcu_sync.create(name)
+
+    def rcu_read_lock(self, name: str = 'default') -> None:
+        self._rcu_sync.rcu_read_lock(name)
+
+    def rcu_read_unlock(self, name: str = 'default') -> None:
+        self._rcu_sync.rcu_read_unlock(name)
+
+    def rcu_synchronize(self, name: str = 'default') -> None:
+        self._rcu_sync.synchronize_rcu(name)
+
+    def rcu_call(self, callback: Callable[[], None], name: str = 'default') -> None:
+        self._rcu_sync.call_rcu(callback, name)
+
+    def rcu_metrics(self, name: str = 'default') -> Dict[str, Any]:
+        return self._rcu_sync.metrics(name)
+
+    def rcu_summary(self) -> Dict[str, Any]:
+        return self._rcu_sync.summary()
+
+    def rcu_list(self) -> List[str]:
+        return self._rcu_sync.list()
+
+    def rcu_remove(self, name: str) -> bool:
+        return self._rcu_sync.remove(name)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
