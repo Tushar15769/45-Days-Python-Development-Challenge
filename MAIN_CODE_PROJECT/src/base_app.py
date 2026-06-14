@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from lamport_ots import LamportEngine, LamportOTS, LamportKeyPair, LamportSignature
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._lamport = LamportEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,37 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Lamport One-Time Signature ────────────────────────────────
+
+    def lot_create(self, instance_id: str = 'default') -> LamportOTS:
+        return self._lamport.create(instance_id)
+
+    def lot_generate_keypair(self, instance_id: str = 'default') -> Optional[LamportKeyPair]:
+        return self._lamport.generate_keypair(instance_id)
+
+    def lot_sign(self, instance_id: str, message_hash: bytes,
+                 keypair: LamportKeyPair) -> Optional[LamportSignature]:
+        return self._lamport.sign(instance_id, message_hash, keypair)
+
+    def lot_verify(self, instance_id: str, message_hash: bytes,
+                   signature: LamportSignature, public_key: LamportKeyPair) -> Optional[bool]:
+        return self._lamport.verify(instance_id, message_hash, signature, public_key)
+
+    def lot_used(self, instance_id: str = 'default') -> bool:
+        return self._lamport.used(instance_id)
+
+    def lot_metrics(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._lamport.lot_metrics(instance_id)
+
+    def lot_summary(self) -> Dict[str, Any]:
+        return self._lamport.summary()
+
+    def lot_list(self) -> List[str]:
+        return self._lamport.list()
+
+    def lot_remove(self, instance_id: str) -> bool:
+        return self._lamport.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
