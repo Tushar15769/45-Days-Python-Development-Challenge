@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from merkle_signature import MerkleEngine, MerkleSigner, MerkleKeyPair, MerkleSignature
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._merkle = MerkleEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,37 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Merkle Signature Scheme ───────────────────────────────────
+
+    def ms_create(self, instance_id: str = 'default', tree_height: int = 8) -> MerkleSigner:
+        return self._merkle.create(instance_id, tree_height)
+
+    def ms_generate_keypair(self, instance_id: str = 'default') -> Optional[MerkleKeyPair]:
+        return self._merkle.generate_keypair(instance_id)
+
+    def ms_sign(self, instance_id: str, message: str,
+                keypair: MerkleKeyPair) -> Optional[MerkleSignature]:
+        return self._merkle.sign(instance_id, message, keypair)
+
+    def ms_verify(self, instance_id: str, message: str,
+                  signature: MerkleSignature, public_root: bytes) -> Optional[bool]:
+        return self._merkle.verify(instance_id, message, signature, public_root)
+
+    def ms_remaining_signatures(self, instance_id: str = 'default') -> int:
+        return self._merkle.remaining_signatures(instance_id)
+
+    def ms_metrics(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._merkle.ms_metrics(instance_id)
+
+    def ms_summary(self) -> Dict[str, Any]:
+        return self._merkle.summary()
+
+    def ms_list(self) -> List[str]:
+        return self._merkle.list()
+
+    def ms_remove(self, instance_id: str) -> bool:
+        return self._merkle.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
