@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from zk_range_proof import ZKRangeEngine, ZKRangeProver, ZKRangeProof, ZKRangeParams
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._zkr = ZKRangeEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,37 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Zero-Knowledge Range Proof ────────────────────────────────
+
+    def zkr_create(self, instance_id: str = 'default', key_size: int = 2048) -> ZKRangeProver:
+        return self._zkr.create(instance_id, key_size)
+
+    def zkr_setup_params(self, instance_id: str = 'default') -> Optional[ZKRangeParams]:
+        return self._zkr.setup_params(instance_id)
+
+    def zkr_prove(self, instance_id: str, value: int, bit_length: int,
+                  params: ZKRangeParams) -> Optional[Tuple[ZKRangeProof, int, List[int]]]:
+        return self._zkr.prove(instance_id, value, bit_length, params)
+
+    def zkr_verify(self, instance_id: str, proof: ZKRangeProof, bit_length: int,
+                   params: ZKRangeParams, commitment: int) -> Optional[bool]:
+        return self._zkr.verify(instance_id, proof, bit_length, params, commitment)
+
+    def zkr_proof_size(self, instance_id: str, proof: ZKRangeProof) -> int:
+        return self._zkr.proof_size(instance_id, proof)
+
+    def zkr_metrics(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._zkr.zkr_metrics(instance_id)
+
+    def zkr_summary(self) -> Dict[str, Any]:
+        return self._zkr.summary()
+
+    def zkr_list(self) -> List[str]:
+        return self._zkr.list()
+
+    def zkr_remove(self, instance_id: str) -> bool:
+        return self._zkr.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
