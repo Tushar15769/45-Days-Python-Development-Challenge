@@ -5,7 +5,7 @@ from copy import deepcopy as _deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
 import json
 import math
 import os
@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from epoch_reclaim import EpochBasedReclamationEngine, EpochDomain
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._epoch_reclaim = EpochBasedReclamationEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,36 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Epoch-based memory reclamation ──────────────────────────────
+
+    def ebr_create(self, name: str = 'default', reclaim_threshold: int = 100) -> EpochDomain:
+        return self._epoch_reclaim.create(name, reclaim_threshold)
+
+    def ebr_enter_epoch(self, name: str = 'default') -> int:
+        return self._epoch_reclaim.enter_epoch(name)
+
+    def ebr_exit_epoch(self, name: str = 'default') -> None:
+        self._epoch_reclaim.exit_epoch(name)
+
+    def ebr_retire(self, ptr: Any, deleter: Optional[Callable[[Any], None]] = None,
+                   name: str = 'default') -> None:
+        self._epoch_reclaim.retire(ptr, deleter, name)
+
+    def ebr_reclaim(self, name: str = 'default') -> int:
+        return self._epoch_reclaim.reclaim(name)
+
+    def ebr_metrics(self, name: str = 'default') -> Dict[str, Any]:
+        return self._epoch_reclaim.metrics(name)
+
+    def ebr_summary(self) -> Dict[str, Any]:
+        return self._epoch_reclaim.summary()
+
+    def ebr_list(self) -> List[str]:
+        return self._epoch_reclaim.list()
+
+    def ebr_remove(self, name: str) -> bool:
+        return self._epoch_reclaim.remove(name)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
