@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from pedersen_commitment import PedersenEngine, Pedersen, PedersenParams, PedersenCommitment
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._pedersen = PedersenEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,39 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Pedersen Commitment Scheme ────────────────────────────────
+
+    def pc_create(self, instance_id: str = 'default', key_size: int = 2048) -> Pedersen:
+        return self._pedersen.create(instance_id, key_size)
+
+    def pc_setup_group(self, instance_id: str = 'default') -> Optional[PedersenParams]:
+        return self._pedersen.setup_group(instance_id)
+
+    def pc_create_commitment(self, instance_id: str, value: int,
+                             params: PedersenParams) -> Optional[Tuple[PedersenCommitment, int]]:
+        return self._pedersen.create_commitment(instance_id, value, params)
+
+    def pc_verify_commitment(self, instance_id: str,
+                             commitment: PedersenCommitment, value: int,
+                             randomness: int) -> Optional[bool]:
+        return self._pedersen.verify_commitment(instance_id, commitment, value, randomness)
+
+    def pc_add_commitments(self, instance_id: str,
+                           c1: PedersenCommitment, c2: PedersenCommitment) -> Optional[PedersenCommitment]:
+        return self._pedersen.add_commitments(instance_id, c1, c2)
+
+    def pc_metrics(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._pedersen.pc_metrics(instance_id)
+
+    def pc_summary(self) -> Dict[str, Any]:
+        return self._pedersen.summary()
+
+    def pc_list(self) -> List[str]:
+        return self._pedersen.list()
+
+    def pc_remove(self, instance_id: str) -> bool:
+        return self._pedersen.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
