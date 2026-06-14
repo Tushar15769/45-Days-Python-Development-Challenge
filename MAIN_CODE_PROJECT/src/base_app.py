@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from gossip_broadcast import GossipEngine, GossipNode, GossipMessage
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._gossip = GossipEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,44 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Gossip Epidemic Broadcast ─────────────────────────────────
+
+    def gs_create(self, node_id: str, fanout: int = 3, ttl: int = 10) -> GossipNode:
+        return self._gossip.create(node_id, fanout, ttl)
+
+    def gs_add_peer(self, node_id: str, peer_id: str) -> bool:
+        return self._gossip.add_peer(node_id, peer_id)
+
+    def gs_broadcast(self, node_id: str, message: Any, ttl: Optional[int] = None) -> Optional[str]:
+        return self._gossip.broadcast(node_id, message, ttl)
+
+    def gs_receive(self, node_id: str) -> List[GossipMessage]:
+        return self._gossip.receive(node_id)
+
+    def gs_fanout(self, node_id: str) -> Optional[int]:
+        return self._gossip.fanout(node_id)
+
+    def gs_convergence_time(self, node_id: str) -> Optional[float]:
+        return self._gossip.convergence_time(node_id)
+
+    def gs_peer_count(self, node_id: str) -> int:
+        return self._gossip.peer_count(node_id)
+
+    def gs_anti_entropy_sync(self, node_id: str, peer_id: str) -> Optional[Tuple[int, int]]:
+        return self._gossip.anti_entropy_sync(node_id, peer_id)
+
+    def gs_metrics(self, node_id: str) -> Dict[str, Any]:
+        return self._gossip.gossip_metrics(node_id)
+
+    def gs_summary(self) -> Dict[str, Any]:
+        return self._gossip.summary()
+
+    def gs_list(self) -> List[str]:
+        return self._gossip.list()
+
+    def gs_remove(self, node_id: str) -> bool:
+        return self._gossip.remove(node_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
