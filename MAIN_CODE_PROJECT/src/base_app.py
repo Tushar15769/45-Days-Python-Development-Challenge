@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from lockfree_deque import LockFreeDequeEngine, LockFreeDeque
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._lfdeque = LockFreeDequeEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,35 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Lock-Free Double-Ended Queue ──────────────────────────────
+
+    def lfq_create(self, name: str = 'default') -> LockFreeDeque:
+        return self._lfdeque.create(name)
+
+    def lfq_push_left(self, value: Any, name: str = 'default') -> None:
+        self._lfdeque.push_left(value, name)
+
+    def lfq_push_right(self, value: Any, name: str = 'default') -> None:
+        self._lfdeque.push_right(value, name)
+
+    def lfq_pop_left(self, name: str = 'default') -> Optional[Any]:
+        return self._lfdeque.pop_left(name)
+
+    def lfq_pop_right(self, name: str = 'default') -> Optional[Any]:
+        return self._lfdeque.pop_right(name)
+
+    def lfq_metrics(self, name: str = 'default') -> Dict[str, Any]:
+        return self._lfdeque.metrics(name)
+
+    def lfq_summary(self) -> Dict[str, Any]:
+        return self._lfdeque.summary()
+
+    def lfq_list(self) -> List[str]:
+        return self._lfdeque.list()
+
+    def lfq_remove(self, name: str) -> bool:
+        return self._lfdeque.remove(name)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
