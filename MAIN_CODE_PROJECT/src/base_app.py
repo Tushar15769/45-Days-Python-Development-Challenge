@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from ecc_arithmetic import ECEngine, ECCurve, ECPoint
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._ecc = ECEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,35 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Elliptic Curve Arithmetic ─────────────────────────────────
+
+    def ec_create(self, instance_id: str = 'default') -> ECCurve:
+        return self._ecc.create(instance_id)
+
+    def ec_point_add(self, instance_id: str, P: ECPoint, Q: ECPoint) -> Optional[ECPoint]:
+        return self._ecc.point_add(instance_id, P, Q)
+
+    def ec_point_mul(self, instance_id: str, k: int, P: ECPoint) -> Optional[ECPoint]:
+        return self._ecc.point_mul(instance_id, k, P)
+
+    def ec_generate_keypair(self, instance_id: str = 'default') -> Optional[Tuple[int, ECPoint]]:
+        return self._ecc.generate_keypair(instance_id)
+
+    def ec_is_on_curve(self, instance_id: str, point: ECPoint) -> Optional[bool]:
+        return self._ecc.is_on_curve(instance_id, point)
+
+    def ec_metrics(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._ecc.ec_metrics(instance_id)
+
+    def ec_summary(self) -> Dict[str, Any]:
+        return self._ecc.summary()
+
+    def ec_list(self) -> List[str]:
+        return self._ecc.list()
+
+    def ec_remove(self, instance_id: str) -> bool:
+        return self._ecc.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
