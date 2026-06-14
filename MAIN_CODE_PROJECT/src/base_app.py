@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from phi_accrual_fd import PhiAccrualEngine, PhiAccrualDetector
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._phi_fd = PhiAccrualEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,33 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Phi Accrual Failure Detection ─────────────────────────────
+
+    def phi_create(self, node_id: str, window_size: int = 1000,
+                   min_std_dev_ms: float = 50.0) -> PhiAccrualDetector:
+        return self._phi_fd.create(node_id, window_size, min_std_dev_ms)
+
+    def phi_report_heartbeat(self, node_id: str) -> None:
+        self._phi_fd.report_heartbeat(node_id)
+
+    def phi_score(self, node_id: str) -> float:
+        return self._phi_fd.phi(node_id)
+
+    def phi_is_available(self, node_id: str, threshold: float = 8.0) -> bool:
+        return self._phi_fd.is_available(node_id, threshold)
+
+    def phi_metrics(self, node_id: str) -> Dict[str, Any]:
+        return self._phi_fd.detector_metrics(node_id)
+
+    def phi_summary(self) -> Dict[str, Any]:
+        return self._phi_fd.summary()
+
+    def phi_list(self) -> List[str]:
+        return self._phi_fd.list()
+
+    def phi_remove(self, node_id: str) -> bool:
+        return self._phi_fd.remove(node_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
