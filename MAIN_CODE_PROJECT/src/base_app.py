@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from dh_key_exchange import DHEngine, DiffieHellman, DHParams, DHKeyPair
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._dh = DHEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,38 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Diffie-Hellman Key Exchange ───────────────────────────────
+
+    def dh_create(self, instance_id: str = 'default', key_size: int = 2048) -> DiffieHellman:
+        return self._dh.create(instance_id, key_size)
+
+    def dh_generate_params(self, instance_id: str = 'default') -> Optional[DHParams]:
+        return self._dh.generate_params(instance_id)
+
+    def dh_generate_keypair(self, instance_id: str = 'default',
+                            params: Optional[DHParams] = None) -> Optional[DHKeyPair]:
+        return self._dh.generate_keypair(instance_id, params)
+
+    def dh_compute_shared_secret(self, instance_id: str,
+                                 private_key: int, peer_public_key: int,
+                                 params: DHParams) -> Optional[int]:
+        return self._dh.compute_shared_secret(instance_id, private_key, peer_public_key, params)
+
+    def dh_params_to_dict(self, params: DHParams) -> Dict[str, Any]:
+        return params.to_dict()
+
+    def dh_metrics(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._dh.dh_metrics(instance_id)
+
+    def dh_summary(self) -> Dict[str, Any]:
+        return self._dh.summary()
+
+    def dh_list(self) -> List[str]:
+        return self._dh.list()
+
+    def dh_remove(self, instance_id: str) -> bool:
+        return self._dh.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
