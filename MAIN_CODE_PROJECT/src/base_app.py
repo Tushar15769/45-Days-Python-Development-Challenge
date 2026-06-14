@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from raft_consensus import RaftEngine, RaftNode
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._raft = RaftEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,38 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Raft Consensus Protocol ───────────────────────────────────
+
+    def raft_create(self, node_id: str, cluster: Optional[List[str]] = None) -> RaftNode:
+        return self._raft.create(node_id, cluster)
+
+    def raft_propose(self, node_id: str, command: Any) -> bool:
+        return self._raft.propose(node_id, command)
+
+    def raft_leader(self, node_id: str) -> Optional[str]:
+        return self._raft.leader(node_id)
+
+    def raft_commit_index(self, node_id: str) -> int:
+        return self._raft.commit_index(node_id)
+
+    def raft_add_server(self, node_id: str, server_id: str) -> None:
+        self._raft.add_server(node_id, server_id)
+
+    def raft_remove_server(self, node_id: str, server_id: str) -> None:
+        self._raft.remove_server(node_id, server_id)
+
+    def raft_metrics(self, node_id: str) -> Dict[str, Any]:
+        return self._raft.raft_metrics(node_id)
+
+    def raft_summary(self) -> Dict[str, Any]:
+        return self._raft.summary()
+
+    def raft_list(self) -> List[str]:
+        return self._raft.list()
+
+    def raft_remove(self, node_id: str) -> bool:
+        return self._raft.remove(node_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
