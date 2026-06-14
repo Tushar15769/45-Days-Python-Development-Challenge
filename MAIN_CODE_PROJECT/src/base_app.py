@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from bdd_engine import BDDEngine, BDD, BDDNode
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._bdd = BDDEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,47 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── BDD Engine ─────────────────────────────────────────────
+
+    def bdd_create(self, instance_id: str = 'default') -> BDD:
+        return self._bdd.create(instance_id)
+
+    def bdd_build_from_formula(self, instance_id: str, expr: str) -> bool:
+        return self._bdd.build_from_formula(instance_id, expr)
+
+    def bdd_node_count(self, instance_id: str = 'default') -> int:
+        return self._bdd.node_count(instance_id)
+
+    def bdd_satisfy_count(self, instance_id: str = 'default') -> int:
+        return self._bdd.satisfy_count(instance_id)
+
+    def bdd_all_sat(self, instance_id: str = 'default') -> List[Dict[int, bool]]:
+        return self._bdd.all_sat(instance_id)
+
+    def bdd_apply(self, instance_id: str, op: str, g_instance: str) -> bool:
+        return self._bdd.apply(instance_id, op, g_instance)
+
+    def bdd_restrict(self, instance_id: str, var: int, val: bool) -> None:
+        self._bdd.restrict(instance_id, var, val)
+
+    def bdd_exists(self, instance_id: str, var: int) -> None:
+        self._bdd.exists(instance_id, var)
+
+    def bdd_forall(self, instance_id: str, var: int) -> None:
+        self._bdd.forall(instance_id, var)
+
+    def bdd_stats(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._bdd.bdd_stats(instance_id)
+
+    def bdd_summary(self) -> Dict[str, Any]:
+        return self._bdd.summary()
+
+    def bdd_list(self) -> List[str]:
+        return self._bdd.list()
+
+    def bdd_remove(self, instance_id: str) -> bool:
+        return self._bdd.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
