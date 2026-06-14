@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from hlc_timestamp import HLCEngine, HybridLogicalClock, HLCTimestamp
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._hlc = HLCEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,38 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Hybrid Logical Clock ──────────────────────────────────────
+
+    def hlc_create(self, node_id: str, max_skew_ms: int = 100) -> HybridLogicalClock:
+        return self._hlc.create(node_id, max_skew_ms)
+
+    def hlc_now(self, node_id: str) -> Optional[HLCTimestamp]:
+        return self._hlc.now(node_id)
+
+    def hlc_update(self, node_id: str, peer_timestamp: HLCTimestamp) -> Optional[HLCTimestamp]:
+        return self._hlc.update(node_id, peer_timestamp)
+
+    def hlc_compare(self, a: HLCTimestamp, b: HLCTimestamp) -> int:
+        return HLCEngine.compare(a, b)
+
+    def hlc_encode_for_wire(self, node_id: str, ts: HLCTimestamp) -> Optional[str]:
+        return self._hlc.encode_for_wire(node_id, ts)
+
+    def hlc_max_physical_clock_skew(self, node_id: str) -> Optional[int]:
+        return self._hlc.max_physical_clock_skew(node_id)
+
+    def hlc_metrics(self, node_id: str) -> Dict[str, Any]:
+        return self._hlc.hlc_metrics(node_id)
+
+    def hlc_summary(self) -> Dict[str, Any]:
+        return self._hlc.summary()
+
+    def hlc_list(self) -> List[str]:
+        return self._hlc.list()
+
+    def hlc_remove(self, node_id: str) -> bool:
+        return self._hlc.remove(node_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
