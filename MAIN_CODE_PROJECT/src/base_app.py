@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from a_star_pathfinding import AStarEngine, AStar, AStarNode
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._astar = AStarEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,41 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── A* Pathfinding ────────────────────────────────────────────
+
+    def astar_create(self, instance_id: str = 'default', heuristic: str = 'manhattan') -> AStar:
+        return self._astar.create(instance_id, heuristic)
+
+    def astar_add_node(self, instance_id: str, node_id: str, coord: Tuple[float, float]) -> None:
+        self._astar.add_node(instance_id, node_id, coord)
+
+    def astar_add_edge(self, instance_id: str, from_id: str, to_id: str,
+                       cost: float = 1.0, bidirectional: bool = True) -> None:
+        self._astar.add_edge(instance_id, from_id, to_id, cost, bidirectional)
+
+    def astar_find_path(self, instance_id: str, start: str, goal: str,
+                        graph: Optional[Dict[str, Dict[str, float]]] = None,
+                        heuristic_fn: Optional[Callable[[Tuple[float, float], Tuple[float, float]], float]] = None) -> Optional[List[str]]:
+        return self._astar.find_path(instance_id, start, goal, graph, heuristic_fn)
+
+    def astar_explored_count(self, instance_id: str = 'default') -> int:
+        return self._astar.explored_count(instance_id)
+
+    def astar_path_cost(self, instance_id: str = 'default') -> float:
+        return self._astar.path_cost(instance_id)
+
+    def astar_metrics(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._astar.astar_metrics(instance_id)
+
+    def astar_summary(self) -> Dict[str, Any]:
+        return self._astar.summary()
+
+    def astar_list(self) -> List[str]:
+        return self._astar.list()
+
+    def astar_remove(self, instance_id: str) -> bool:
+        return self._astar.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
