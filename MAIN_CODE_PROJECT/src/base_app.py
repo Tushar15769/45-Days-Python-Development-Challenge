@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from paxos_consensus import PaxosEngine, PaxosNode
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._paxos = PaxosEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,41 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Paxos Consensus Simulation ───────────────────────────────
+
+    def paxos_create(self, node_id: str, quorum_size: int = 2) -> PaxosNode:
+        return self._paxos.create(node_id, quorum_size)
+
+    def paxos_propose(self, proposer_id: str, value: Any) -> Optional[Any]:
+        return self._paxos.propose(proposer_id, value)
+
+    def paxos_leader_status(self, node_id: str) -> str:
+        return self._paxos.leader_status(node_id)
+
+    def paxos_ballot_number(self, node_id: str) -> int:
+        return self._paxos.ballot_number(node_id)
+
+    def paxos_simulate_failure(self, node_id: str) -> None:
+        self._paxos.simulate_failure(node_id)
+
+    def paxos_recover(self, node_id: str) -> None:
+        self._paxos.recover(node_id)
+
+    def paxos_become_leader(self, node_id: str, lease_seconds: float = 30.0) -> None:
+        self._paxos.become_leader(node_id, lease_seconds)
+
+    def paxos_metrics(self, node_id: str) -> Dict[str, Any]:
+        return self._paxos.paxos_metrics(node_id)
+
+    def paxos_summary(self) -> Dict[str, Any]:
+        return self._paxos.summary()
+
+    def paxos_list(self) -> List[str]:
+        return self._paxos.list()
+
+    def paxos_remove(self, node_id: str) -> bool:
+        return self._paxos.remove(node_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
