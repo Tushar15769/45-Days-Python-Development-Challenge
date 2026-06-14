@@ -5,7 +5,7 @@ from copy import deepcopy as _deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
 import json
 import math
 import os
@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from seqlock import SeqlockEngine, Seqlock, SeqlockProtectedValue
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._seqlock = SeqlockEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,41 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Seqlock optimistic read / writer-priority sync ─────────────
+
+    def sl_create(self, name: str = 'default') -> Seqlock:
+        return self._seqlock.create(name)
+
+    def sl_read_begin(self, name: str = 'default') -> int:
+        return self._seqlock.read_begin(name)
+
+    def sl_read_end(self, seq: int, name: str = 'default') -> bool:
+        return self._seqlock.read_end(seq, name)
+
+    def sl_write_lock(self, name: str = 'default') -> None:
+        self._seqlock.write_lock(name)
+
+    def sl_write_unlock(self, name: str = 'default') -> None:
+        self._seqlock.write_unlock(name)
+
+    def sl_protect_read(self, block: Callable[[], Any], name: str = 'default') -> Any:
+        return self._seqlock.protect_read(block, name)
+
+    def sl_protect_write(self, block: Callable[[], Any], name: str = 'default') -> Any:
+        return self._seqlock.protect_write(block, name)
+
+    def sl_metrics(self, name: str = 'default') -> Dict[str, Any]:
+        return self._seqlock.metrics(name)
+
+    def sl_summary(self) -> Dict[str, Any]:
+        return self._seqlock.summary()
+
+    def sl_list(self) -> List[str]:
+        return self._seqlock.list()
+
+    def sl_remove(self, name: str) -> bool:
+        return self._seqlock.remove(name)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
