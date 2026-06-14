@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from elgamal_encryption import ElGamalEngine, ElGamal, ElGamalKeyPair, ElGamalPublicKey, ElGamalPrivateKey, ElGamalCiphertext
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._elgamal = ElGamalEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,42 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── ElGamal Encryption ────────────────────────────────────────
+
+    def eg_create(self, instance_id: str = 'default', key_size: int = 2048) -> ElGamal:
+        return self._elgamal.create(instance_id, key_size)
+
+    def eg_generate_keypair(self, instance_id: str = 'default') -> Optional[ElGamalKeyPair]:
+        return self._elgamal.generate_keypair(instance_id)
+
+    def eg_encrypt(self, instance_id: str, plaintext: int,
+                   public_key: ElGamalPublicKey) -> Optional[ElGamalCiphertext]:
+        return self._elgamal.encrypt(instance_id, plaintext, public_key)
+
+    def eg_decrypt(self, instance_id: str, ciphertext: ElGamalCiphertext,
+                   private_key: ElGamalPrivateKey) -> Optional[int]:
+        return self._elgamal.decrypt(instance_id, ciphertext, private_key)
+
+    def eg_ciphertext_mul(self, instance_id: str,
+                          c1: ElGamalCiphertext, c2: ElGamalCiphertext) -> Optional[ElGamalCiphertext]:
+        return self._elgamal.ciphertext_mul(instance_id, c1, c2)
+
+    def eg_ciphertext_add(self, instance_id: str,
+                          c1: ElGamalCiphertext, c2: ElGamalCiphertext) -> Optional[ElGamalCiphertext]:
+        return self._elgamal.ciphertext_add(instance_id, c1, c2)
+
+    def eg_metrics(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._elgamal.eg_metrics(instance_id)
+
+    def eg_summary(self) -> Dict[str, Any]:
+        return self._elgamal.summary()
+
+    def eg_list(self) -> List[str]:
+        return self._elgamal.list()
+
+    def eg_remove(self, instance_id: str) -> bool:
+        return self._elgamal.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
