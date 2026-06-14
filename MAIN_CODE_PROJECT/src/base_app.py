@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from abstract_interpretation import AbstractInterpretationEngine, AbstractInterpreter, Sign
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._ai = AbstractInterpretationEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,35 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Abstract Interpretation ─────────────────────────────────
+
+    def ai_create(self, instance_id: str = 'default') -> AbstractInterpreter:
+        return self._ai.create(instance_id)
+
+    def ai_analyze(self, instance_id: str, source: str) -> None:
+        self._ai.analyze(instance_id, source)
+
+    def ai_abstract_state_at(self, instance_id: str, line: int) -> Dict[str, str]:
+        return self._ai.abstract_state_at(instance_id, line)
+
+    def ai_sign_of(self, instance_id: str, variable: str, line: int) -> str:
+        return self._ai.sign_of(instance_id, variable, line)
+
+    def ai_warnings(self, instance_id: str = 'default') -> List[Dict[str, Any]]:
+        return self._ai.warnings(instance_id)
+
+    def ai_metrics(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._ai.ai_metrics(instance_id)
+
+    def ai_summary(self) -> Dict[str, Any]:
+        return self._ai.summary()
+
+    def ai_list(self) -> List[str]:
+        return self._ai.list()
+
+    def ai_remove(self, instance_id: str) -> bool:
+        return self._ai.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
