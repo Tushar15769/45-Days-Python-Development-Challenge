@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from hmm_sequence import HMMEngine, HMM
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._hmm = HMMEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,39 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Hidden Markov Model ───────────────────────────────────────
+
+    def hmm_create(self, instance_id: str, n_states: int = 3, n_obs_symbols: int = 10) -> HMM:
+        return self._hmm.create(instance_id, n_states, n_obs_symbols)
+
+    def hmm_train(self, instance_id: str, obs: List[int], n_states: Optional[int] = None,
+                  max_iter: int = 100, tol: float = 1e-4) -> Optional[int]:
+        return self._hmm.train(instance_id, obs, n_states, max_iter, tol)
+
+    def hmm_viterbi(self, instance_id: str, obs: List[int]) -> Optional[Tuple[List[int], float]]:
+        return self._hmm.viterbi(instance_id, obs)
+
+    def hmm_forward(self, instance_id: str, obs: List[int]) -> Optional[List[List[float]]]:
+        return self._hmm.forward(instance_id, obs)
+
+    def hmm_predict_next_state(self, instance_id: str, obs: List[int]) -> Optional[Tuple[List[float], int]]:
+        return self._hmm.predict_next_state(instance_id, obs)
+
+    def hmm_log_likelihood(self, instance_id: str, obs: List[int]) -> Optional[float]:
+        return self._hmm.log_likelihood(instance_id, obs)
+
+    def hmm_metrics(self, instance_id: str) -> Dict[str, Any]:
+        return self._hmm.hmm_metrics(instance_id)
+
+    def hmm_summary(self) -> Dict[str, Any]:
+        return self._hmm.summary()
+
+    def hmm_list(self) -> List[str]:
+        return self._hmm.list()
+
+    def hmm_remove(self, instance_id: str) -> bool:
+        return self._hmm.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
