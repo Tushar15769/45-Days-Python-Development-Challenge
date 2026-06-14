@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from petri_net_analysis import PetriNetEngine, PetriNet
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._pn = PetriNetEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,41 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Petri Net Analysis ─────────────────────────────────────
+
+    def pn_create(self, instance_id: str = 'default') -> PetriNet:
+        return self._pn.create(instance_id)
+
+    def pn_add_place(self, instance_id: str, name: str, tokens: int = 0) -> None:
+        self._pn.add_place(instance_id, name, tokens)
+
+    def pn_add_transition(self, instance_id: str, name: str, input_arcs: List[Tuple[str, int]], output_arcs: List[Tuple[str, int]]) -> None:
+        self._pn.add_transition(instance_id, name, input_arcs, output_arcs)
+
+    def pn_fire(self, instance_id: str, transition: str) -> bool:
+        return self._pn.fire(instance_id, transition)
+
+    def pn_reachability_graph(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._pn.reachability_graph(instance_id)
+
+    def pn_coverability_tree(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._pn.coverability_tree(instance_id)
+
+    def pn_invariants(self, instance_id: str = 'default') -> List[Dict[str, int]]:
+        return self._pn.invariants(instance_id)
+
+    def pn_stats(self, instance_id: str = 'default') -> Dict[str, Any]:
+        return self._pn.pn_stats(instance_id)
+
+    def pn_summary(self) -> Dict[str, Any]:
+        return self._pn.summary()
+
+    def pn_list(self) -> List[str]:
+        return self._pn.list()
+
+    def pn_remove(self, instance_id: str) -> bool:
+        return self._pn.remove(instance_id)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
