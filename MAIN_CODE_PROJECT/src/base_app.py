@@ -23,6 +23,7 @@ from decimal_utils import Money, safe_decimal
 
 from drift_timer import DriftCorrectedTimer, Stopwatch
 from file_manager import FileManage
+from elimination_backoff_stack import EliminationBackoffEngine, EliminationBackoffStack
 
 
 @dataclass
@@ -122,8 +123,9 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
         self.output = _OutputProxy(self)
         self._tasks: Dict[str, Any] = {}
         self._next_id: int = 0
+        self._elim_stack = EliminationBackoffEngine()
         self._replicator = IncrementalStateReplicator()
-        self._guard = ResourceGuard('BaseApp', self.output_dir
+        self._guard = ResourceGuard('BaseApp', self.output_dir)
 
     # ── Logging / state mutation helpers ───────────────────────────────
 
@@ -620,6 +622,29 @@ class BaseApp(DataProvider, DataProcessor, AppRunner):
             self._wal.write_checkpoint(dict(self.state.records))
         self._wal.commit_txn('main')
         self.log('Finalized successfully')
+
+    # ── Elimination-Backoff Concurrent Stack ──────────────────────
+
+    def ebs_create(self, name: str = 'default', elimination_capacity: int = 8) -> EliminationBackoffStack:
+        return self._elim_stack.create(name, elimination_capacity)
+
+    def ebs_push(self, value: Any, name: str = 'default') -> None:
+        self._elim_stack.push(value, name)
+
+    def ebs_pop(self, name: str = 'default') -> Optional[Any]:
+        return self._elim_stack.pop(name)
+
+    def ebs_elimination_stats(self, name: str = 'default') -> Dict[str, Any]:
+        return self._elim_stack.elimination_stats(name)
+
+    def ebs_summary(self) -> Dict[str, Any]:
+        return self._elim_stack.summary()
+
+    def ebs_list(self) -> List[str]:
+        return self._elim_stack.list()
+
+    def ebs_remove(self, name: str) -> bool:
+        return self._elim_stack.remove(name)
 
     def tls_pin_host(self, host: str, fingerprints: List[str]) -> None:
         self._pinner.pin_host(host, fingerprints)
